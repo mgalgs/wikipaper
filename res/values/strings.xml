@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, WikiPaper!</string>
+    <string name="app_name">WikiPaper</string>
+    <string name="btn_get_article">Get Random Article!</string>
+    <string name="default_article_text">article will go here...</string>
+    <string name="load_text">Loading... please plase lpas el please wait yes please plase plase yes!!</string>
+</resources>
