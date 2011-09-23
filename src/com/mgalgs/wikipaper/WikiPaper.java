@@ -3,7 +3,12 @@ package com.mgalgs.wikipaper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.Semaphore;
 
+import android.R.bool;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -16,11 +21,20 @@ import android.view.SurfaceHolder;
 
 public class WikiPaper extends WallpaperService {
 	public static final String WP_LOGTAG= "WikiPaper Log";
+
+	//private static final long DEFAULT_UPDATE_SUMMARY_DELAY_MS = 3600000; // 10 minutes
+	private static final long DEFAULT_UPDATE_SUMMARY_DELAY_MS = 20000; // 20 seconds
 	
 	private final Handler mHandler = new Handler();
 	private String mSummaryText;
-	
+	private TimerTask mUpdateSummaryTextTask;
+	private Timer mUpdateSummaryTextTimer = new Timer();
+	private Semaphore mSummaryTextMutex = new Semaphore(1);
+
+
 	private DataManager mDataManager;
+
+	private long mUpdateSummaryTextDelay_ms = DEFAULT_UPDATE_SUMMARY_DELAY_MS;
 
     @Override
     public void onCreate() {
@@ -31,14 +45,42 @@ public class WikiPaper extends WallpaperService {
         mSummaryText = mDataManager.open().GetUnusedArticle(1);
         if (mSummaryText == null)
         	mSummaryText = getString(R.string.load_text);
+        
+        mUpdateSummaryTextTask = new TimerTask() {
+			@Override
+			public void run() {
+				String txt = mDataManager.GetUnusedArticle(5);
+				if (txt != null) {
+					try {
+						mSummaryTextMutex.acquire();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+						Log.e(WP_LOGTAG, "Semaphore interruption???");
+						return;
+					}
+					mSummaryText = txt;
+					mSummaryTextMutex.release();
+				} else {
+					Log.e(WP_LOGTAG, "Error getting more articles in the background...");
+				}
+			}
+		};
+		mUpdateSummaryTextTimer.scheduleAtFixedRate(
+				mUpdateSummaryTextTask,
+				mUpdateSummaryTextDelay_ms ,
+				mUpdateSummaryTextDelay_ms);
     }
 
     @Override
     public void onDestroy() {
+    	mUpdateSummaryTextTimer.cancel();
         super.onDestroy();
         mDataManager.close();
     }
+    
+    
 
+    
     @Override
     public Engine onCreateEngine() {
         return new WikiPaperEngine();
@@ -46,23 +88,35 @@ public class WikiPaper extends WallpaperService {
     
 	class WikiPaperEngine extends Engine {
 		
+		private static final int DEFAULT_FRAME_RATE = 10; // fps
 		private final Paint mTextPaint = new Paint();
 		private final Paint mTouchPaint = new Paint();
-		private long mStartTime;
-        private float mOffset;
         private float mTouchX = -1;
         private float mTouchY = -1;
-        private float mCenterX;
-        private float mCenterY;
-        private int mWidth;
-        private int mHeight;
         private boolean mVisible;
+		private int mFrameRate = DEFAULT_FRAME_RATE; // fps
+		
+		@SuppressWarnings("unused")
+		private long mStartTime;
+		@SuppressWarnings("unused")
+		private float mOffset;
+		@SuppressWarnings("unused")
+		private float mCenterX;
+		@SuppressWarnings("unused")
+		private float mCenterY;
+		@SuppressWarnings("unused")
+		private int mWidth;
+		@SuppressWarnings("unused")
+		private int mHeight;
+		
 
 		private final Runnable mDrawPaper= new Runnable() {
 			public void run() {
 				drawFrame();
 			}
 		};
+		private int mTextOffset_x = 10;
+		private int mTextOffset_y = 80;
 
 		public WikiPaperEngine() {
 			// Create a Paint to draw the text
@@ -181,7 +235,7 @@ public class WikiPaper extends WallpaperService {
 			// Reschedule the next redraw
 			mHandler.removeCallbacks(mDrawPaper);
 			if (mVisible) {
-				mHandler.postDelayed(mDrawPaper, 1000 / 25);
+				mHandler.postDelayed(mDrawPaper, 1000 / mFrameRate);
 			}
 		}
 		
@@ -207,8 +261,8 @@ public class WikiPaper extends WallpaperService {
             }
             lines.add(line); // add the last line
             
-            int x_txt = 10;
-            int y_txt = 40;
+            int x_txt = mTextOffset_x;
+            int y_txt = mTextOffset_y;
             for (String thisLine : lines) {
             	c.drawText(thisLine, x_txt, y_txt, mTextPaint);
             	
