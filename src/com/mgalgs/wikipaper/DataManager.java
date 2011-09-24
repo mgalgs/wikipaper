@@ -1,5 +1,7 @@
 package com.mgalgs.wikipaper;
 
+import java.util.List;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
@@ -66,7 +68,8 @@ public final class DataManager {
 	}
 
 	public void InsertSomeArticles(int n) {
-		Article[] alist = WikiParse.getRandomArticles(n);
+		List<Article> alist = WikiParse.getRandomArticles(n);
+//		Article[] alist = WikiParse.getRandomArticles(n);
 		for (Article a : alist) {
 			ContentValues cv = new ContentValues();
 			cv.put(KEY_ARTICLE_SUMMARY, a.summary);
@@ -76,28 +79,36 @@ public final class DataManager {
 	}
 
 	public Article GetUnusedArticle() {
-		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
-				KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null, null,
-				null, null, KEY_USED + " ASC", "1");
+		Cursor c = null;
+		try {
+			c = mDb.query(true, DATABASE_TABLE, new String[] {
+					KEY_ROW_ID, KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE,
+					KEY_USED }, null, null, null, null, KEY_USED + " ASC", "1");
 
-		if (c != null) {
-			c.moveToFirst();
+			if (c != null && c.getCount() > 0) {
+				c.moveToFirst();
 
-			// update the used count:
-			String updateSql = String.format(
-					"UPDATE %s SET %s=%s + 1 WHERE %s=%s", DATABASE_TABLE,
-					KEY_USED, KEY_USED, KEY_ROW_ID,
-					c.getString(c.getColumnIndex(KEY_ROW_ID)));
-			mDb.execSQL(updateSql);
+				// update the used count:
+				String updateSql = String.format(
+						"UPDATE %s SET %s=%s + 1 WHERE %s=%s", DATABASE_TABLE,
+						KEY_USED, KEY_USED, KEY_ROW_ID,
+						c.getString(c.getColumnIndex(KEY_ROW_ID)));
+				mDb.execSQL(updateSql);
 
-			// return the article
-			Article a = new Article();
-			a.summary = c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY));
-			a.title = c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE));
-			c.close();
-			return a;
-		} else {
+				// return the article
+				Article a = new Article();
+				a.summary = c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY));
+				a.title = c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE));
+				return a;
+			} else {
+				return null;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 			return null;
+		} finally {
+			if (c != null)
+				c.close();
 		}
 	}
 
@@ -113,42 +124,74 @@ public final class DataManager {
 
 
 	public DbStats getDbStats() {
-		Cursor c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
-				null, null, null, null, null, null);
-		if (c == null) return null;
-		int nArticles = c.getCount();
-		c.close();
+		Cursor c = null;
+		int nArticles = -1;
+		try {
+			c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
+					null, null, null, null, null, null);
+			if (c == null)
+				return null;
+			nArticles = c.getCount();
+		} catch (Exception e) {
+			Log.e(WikiPaper.WP_LOGTAG, "Error getting nArticles stats");
+			e.printStackTrace();
+			return null;
+		} finally {
+			if (c != null)
+				c.close();
+		}
 
-		c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED }, KEY_USED
-				+ " = 0", null, null, null, null, null);
+		try {
+			c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED },
+					KEY_USED + " = 0", null, null, null, null, null);
 
-		if (c == null) return null;
-		int nUnusedArticles = c.getCount();
-		c.close();
-		return new DbStats(nArticles, nUnusedArticles);
+			if (c == null)
+				return null;
+			int nUnusedArticles = c.getCount();
+			c.deactivate();
+			c.close();
+			c = null;
+			return new DbStats(nArticles, nUnusedArticles);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		} finally {
+			if(c != null)
+				c.close();
+		}
 	}
 	
 	public void printEntireDb() {
-		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
-				KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null, null,
-				null, null, null, null);
-		if (c == null)
-			return;
-		if (!c.moveToFirst()) {
-			Log.e(WikiPaper.WP_LOGTAG, "crap, nothing in the DB to print...");
+		Cursor c = null;
+		try {
+			c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
+					KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null,
+					null, null, null, null, null);
+			if (c == null)
+				return;
+			if (!c.moveToFirst()) {
+				Log.e(WikiPaper.WP_LOGTAG,
+						"crap, nothing in the DB to print...");
+			}
+			do {
+				Log.i(WikiPaper.WP_LOGTAG,
+						"Here's one: \n"
+								+ c.getString(c.getColumnIndex(KEY_ROW_ID))
+								+ " "
+								+ c.getString(c.getColumnIndex(KEY_USED))
+								+ " "
+								+ c.getString(c
+										.getColumnIndex(KEY_ARTICLE_TITLE))
+								+ " "
+								+ c.getString(c
+										.getColumnIndex(KEY_ARTICLE_SUMMARY)));
+			} while (c.moveToNext());
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (c != null)
+				c.close();
 		}
-		do {
-			Log.i(WikiPaper.WP_LOGTAG,
-					"Here's one: \n"
-							+ c.getString(c.getColumnIndex(KEY_ROW_ID))
-							+ " "
-							+ c.getString(c.getColumnIndex(KEY_USED))
-							+ " "
-							+ c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE))
-							+ " "
-							+ c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY)));
-		} while (c.moveToNext());
-		c.close();
 	}
 
 }

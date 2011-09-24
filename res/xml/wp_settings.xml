@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+        android:title="@string/wp_settings"
+        android:key="wikipaper_settings">
+
+	<CheckBoxPreference
+		android:key="wp_wifi_dl_only"
+		android:title="@string/wp_settings_wifi_dl_only"
+		android:defaultValue="true"
+		android:summaryOn="@string/wp_settings_wifi_dl_only_on"
+		android:summaryOff="@string/wp_settings_wifi_dl_only_off" />
+		
+	<ListPreference
+		android:key="wp_article_refresh_rate"
+		android:title="@string/wp_settings_article_refresh_rate"
+		android:entries="@array/wp_settings_article_refresh_rate_choices"
+		android:entryValues="@array/wp_settings_article_refresh_rate_values"
+		android:defaultValue="60"
+		/>
+
+
+	<ListPreference
+		android:key="wp_frame_rate"
+		android:title="@string/wp_settings_frame_rate"
+		android:summary="@string/wp_settings_frame_rate_summary"
+		android:entries="@array/wp_settings_frame_rate_choices"
+		android:entryValues="@array/wp_settings_frame_rate_values"
+		android:defaultValue="25"
+		/>
+
+	<ListPreference
+		android:key="wp_fresh_articles"
+		android:title="@string/wp_settings_fresh_articles"
+		android:summary="@string/wp_settings_fresh_articles_summary"
+		android:entries="@array/wp_settings_fresh_articles_choices"
+		android:entryValues="@array/wp_settings_fresh_articles_values"
+		android:defaultValue="20"
+		/>
+
+</PreferenceScreen>

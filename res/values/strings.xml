@@ -1,6 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WikiPaper</string>
-    <string name="load_text">Please wait while we pull down some articles from our old friend WikiPedia...</string>
+    <string name="app_description">Random Wikipedia articles delivered straight to your home screen.</string>
+    <string name="load_text">Please wait while we pull down some articles from our old friend Wikipedia... Note: by default we only download articles over WiFi. To enable downloading over the mobile network please push the Settings button.</string>
     <string name="load_title">Loading...</string>
+
+
+    <string name="wp_settings">WikiPaper Settings</string>
+
+    <string name="wp_settings_wifi_dl_only">WiFi Only Download</string>
+    <string name="wp_settings_wifi_dl_only_on">Only download while connected to WiFi</string>
+    <string name="wp_settings_wifi_dl_only_off">Download over WiFi and mobile network</string>
+
+    <string name="wp_settings_frame_rate">Frame Rate</string>
+    <string name="wp_settings_frame_rate_summary">Faster uses more battery</string>
+    <string-array name="wp_settings_frame_rate_choices">
+    	<item>"Slow"</item>
+    	<item>"Medium"</item>
+    	<item>"Fast"</item>
+    </string-array>
+    <string-array name="wp_settings_frame_rate_values">
+    	<item>"15"</item>
+    	<item>"25"</item>
+    	<item>"40"</item>
+    </string-array>
+
+    <string name="wp_settings_fresh_articles">Number of Fresh Articles</string>
+    <string name="wp_settings_fresh_articles_summary">We try to keep at least this many unused articles on hand</string>
+    <string-array name="wp_settings_fresh_articles_choices">
+    	<item>"None"</item>
+    	<item>"10"</item>
+    	<item>"20"</item>
+    	<item>"50"</item>
+    	<item>"100"</item>
+    </string-array>
+    <string-array name="wp_settings_fresh_articles_values">
+    	<item>"0"</item>
+    	<item>"10"</item>
+    	<item>"20"</item>
+    	<item>"50"</item>
+    	<item>"100"</item>
+    </string-array>
+
+    <string name="wp_settings_article_refresh_rate">Article Refresh Rate</string>
+    <string-array name="wp_settings_article_refresh_rate_choices">
+    	<item>"15 Seconds"</item>
+    	<item>"30 Seconds"</item>
+    	<item>"1 Minute"</item>
+    	<item>"5 Minutes"</item>
+    	<item>"15 Minutes"</item>
+    	<item>"30 Minutes"</item>
+    	<item>"60 Minutes"</item>
+    	<item>"2 Hours"</item>
+    	<item>"6 Hours"</item>
+    	<item>"12 Hours"</item>
+    	<item>"24 Hours"</item>
+    </string-array>
+    <string-array name="wp_settings_article_refresh_rate_values">
+    	<item>"15"</item>
+    	<item>"30"</item>
+    	<item>"60"</item>
+    	<item>"300"</item>
+    	<item>"900"</item>
+    	<item>"1800"</item>
+    	<item>"3600"</item>
+    	<item>"7200"</item>
+    	<item>"21600"</item>
+    	<item>"43200"</item>
+    	<item>"86400"</item>
+    </string-array>
 </resources>

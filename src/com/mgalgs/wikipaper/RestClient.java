@@ -11,11 +11,21 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.CoreProtocolPNames;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.util.Log;
+
 
 public class RestClient {
+
+	private static final int CONNECTION_TIMEOUT = 5000; // 5 seconds
+	private static final int SO_TIMEOUT = 10000; // 10 seconds
+
 
 	private static String convertStreamToString(InputStream is) {
 		/*
@@ -34,11 +44,19 @@ public class RestClient {
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
 		} finally {
 			try {
 				is.close();
 			} catch (IOException e) {
 				e.printStackTrace();
+				return null;
+			} catch (Exception e) {
+				e.printStackTrace();
+				return null;
 			}
 		}
 		return sb.toString();
@@ -47,13 +65,18 @@ public class RestClient {
 
 	public static JSONObject connect(String url) {
 		JSONObject json = null;
-		HttpClient httpclient = new DefaultHttpClient();
+		HttpParams httpParameters = new BasicHttpParams();
+		HttpConnectionParams.setConnectionTimeout(httpParameters, CONNECTION_TIMEOUT);
+		HttpConnectionParams.setSoTimeout(httpParameters, SO_TIMEOUT);
+		HttpClient httpclient = new DefaultHttpClient(httpParameters);
+		httpclient.getParams().setParameter(CoreProtocolPNames.USER_AGENT, "RestClient for Android by Mitchel Humpherys <mitch.special@gmail.com>");
 
 		// Prepare a request object
 		HttpGet httpget = new HttpGet(url);
 
 		// Execute the request
 		HttpResponse response;
+		String result = "bogus";
 		try {
 			response = httpclient.execute(httpget);
 
@@ -66,7 +89,11 @@ public class RestClient {
 
 				// A Simple JSON Response Read
 				InputStream instream = entity.getContent();
-				String result = convertStreamToString(instream);
+				result = convertStreamToString(instream);
+				if (result == null) {
+					Log.e(WikiPaper.WP_LOGTAG, "Error while converting stream to string in json stuff!");
+					return null;
+				}
 
 				// A Simple JSONObject Creation
 				json = new JSONObject(result);
@@ -88,6 +115,7 @@ public class RestClient {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (JSONException e) {
+			Log.i("RestClient", "Got an exception while trying to convert " + result);
 			e.printStackTrace();
 		} catch (Exception e) {
 			e.printStackTrace();

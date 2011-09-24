@@ -20,4 +20,7 @@
 <!-- The attributes in this XML file provide configuration information -->
 
 <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+		android:settingsActivity="com.mgalgs.wikipaper.WPSettings"
+		android:thumbnail="@drawable/icon"
+		android:description="@string/app_description"
 />

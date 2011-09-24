@@ -1,10 +1,14 @@
 package com.mgalgs.wikipaper;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+
 import android.util.Log;
 
 public class WikiParse {
@@ -13,7 +17,7 @@ public class WikiParse {
 			String summaryhtml = json.getJSONObject("parse").getJSONObject("text").getString("*");
 			Document doc = Jsoup.parse(summaryhtml);
 			return doc.select("p").first().text();
-		} catch (JSONException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
 		}
@@ -29,8 +33,8 @@ public class WikiParse {
         return RestClient.connect(qs.getQuery());
     }
 
-    public static Article[] getRandomArticles(int nArticles) {
-    	Article [] alist = new Article[nArticles];
+    public static List<Article> getRandomArticles(int nArticles) {
+    	List<Article> alist = new ArrayList<Article>();
 		try {
 			JSONArray jsonrandroot = getRandomArticlesJSON(nArticles)
 					.getJSONObject("query").getJSONArray("random");
@@ -39,16 +43,20 @@ public class WikiParse {
 			for (int i = 0; i < nArticles; i++) {
 				JSONObject j = jsonrandroot.getJSONObject(i);
 				JSONObject article_json = getArticleJSON(j.getInt("id"));
+				if (article_json == null) {
+					Log.e(WikiPaper.WP_LOGTAG, "Got null from download... :(");
+					continue;
+				}
 				Log.i(WikiPaper.WP_LOGTAG,
 						String.format("Downloaded article %d/%d", i+1, nArticles));
 
 				Article a = new Article();
 				a.summary = extractArticleSummaryFromJSON(article_json);
 				a.title = j.getString("title");
-				alist[i] = a;
+				alist.add(a);
 			}
 			return alist;
-		} catch (JSONException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
 		}
