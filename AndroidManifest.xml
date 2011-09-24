@@ -10,9 +10,8 @@
 
     <application android:icon="@drawable/icon" android:label="@string/app_name">
         <service
-            android:label="wikipaper live wallpaper"
             android:permission="android.permission.BIND_WALLPAPER"
-            android:name="WikiPaper">
+            android:name="WikiPaper" android:label="WikiPaper">
             <intent-filter>
                 <action android:name="android.service.wallpaper.WallpaperService" />
             </intent-filter>

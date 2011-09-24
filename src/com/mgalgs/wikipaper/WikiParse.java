@@ -1,25 +1,18 @@
 package com.mgalgs.wikipaper;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
-
 import android.util.Log;
 
 public class WikiParse {
     public static String extractArticleSummaryFromJSON(JSONObject json) {
 		try {
 			String summaryhtml = json.getJSONObject("parse").getJSONObject("text").getString("*");
-			Log.d(WikiPaper.WP_LOGTAG, "trying to parse...");
 			Document doc = Jsoup.parse(summaryhtml);
-			Log.d(WikiPaper.WP_LOGTAG, "trying select els...");
-			Elements els = doc.select("p");
-			Log.d(WikiPaper.WP_LOGTAG, "trying to get text...");
-			String summary = els.first().text();
-			Log.d(WikiPaper.WP_LOGTAG, "ready to go!!!...");
-			return summary;
+			return doc.select("p").first().text();
 		} catch (JSONException e) {
 			e.printStackTrace();
 			return null;
@@ -37,26 +30,34 @@ public class WikiParse {
         return RestClient.connect(qs.getQuery());
     }
 
-    public static String getRandomArticleSummary() {
-    	JSONObject rand_article_json = getRandomArticleJSON();
-    	int article_id;
+    public static Article[] getRandomArticles(int nArticles) {
+    	Article [] alist = new Article[nArticles];
 		try {
-			article_id = rand_article_json.getJSONObject("query").getJSONArray("random").getJSONObject(0).getInt("id");
-			JSONObject article_json = getArticleJSON(article_id);
-			return extractArticleSummaryFromJSON(article_json);
+			JSONArray jsonrandroot = getRandomArticlesJSON(nArticles)
+					.getJSONObject("query").getJSONArray("random");
+			for (int i = 0; i < nArticles; i++) {
+				JSONObject j = jsonrandroot.getJSONObject(i);
+				JSONObject article_json = getArticleJSON(j.getInt("id"));
+
+				Article a = new Article();
+				a.summary = extractArticleSummaryFromJSON(article_json);
+				a.title = j.getString("title");
+				alist[i] = a;
+			}
+			return alist;
 		} catch (JSONException e) {
 			e.printStackTrace();
 			return null;
 		}
     }
     
-    public static JSONObject getRandomArticleJSON() {
+    public static JSONObject getRandomArticlesJSON(int nArticles) {
         QueryString qs = new QueryString("http://en.wikipedia.org/w/api.php");
         qs.add("action", "query");
         qs.add("list", "random");
         qs.add("format", "json");
         qs.add("rnnamespace", "0");
-        qs.add("rnlimit", "1");
+        qs.add("rnlimit", Integer.toString(nArticles));
 
         Log.d(WikiPaper.WP_LOGTAG, "trying to get random article json");
         return RestClient.connect(qs.getQuery());

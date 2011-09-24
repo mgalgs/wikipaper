@@ -15,21 +15,21 @@ public final class DataManager {
 	private static final String DATABASE_TABLE = "Articles";
 
 	private static final String KEY_ROW_ID = "_id";
-	private static final String KEY_ARTICLE_SUMMARY = "article_summary";
+	private static final String KEY_ARTICLE_SUMMARY = "summary";
+	private static final String KEY_ARTICLE_TITLE = "title";
 	private static final String KEY_USED = "used";
-	
+
 	private static final String ARTICLES_TABLE_CREATE = "CREATE TABLE "
-			+ DATABASE_TABLE + " ("
-			+ KEY_ROW_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-			+ KEY_USED + " INTEGER DEFAULT 0,"
+			+ DATABASE_TABLE + " (" + KEY_ROW_ID
+			+ " INTEGER PRIMARY KEY AUTOINCREMENT," + KEY_USED
+			+ " INTEGER DEFAULT 0," + KEY_ARTICLE_TITLE + " TEXT NOT NULL,"
 			+ KEY_ARTICLE_SUMMARY + " TEXT NOT NULL);";
 	private static final int LOW_ROWS_THRESHOLD = 5;
 
 	private DatabaseHelper mDbHelper;
 	private SQLiteDatabase mDb;
-	
-	private final Context mCtx;
 
+	private final Context mCtx;
 
 	private static class DatabaseHelper extends SQLiteOpenHelper {
 		public DatabaseHelper(Context context) {
@@ -48,7 +48,7 @@ public final class DataManager {
 			Log.i(WikiPaper.WP_LOGTAG, "Doing a DB upgrade on WikiPaper!");
 		}
 	}
-	
+
 	public DataManager(Context ctx) {
 		mCtx = ctx;
 	}
@@ -66,82 +66,90 @@ public final class DataManager {
 	}
 
 	private void InsertSomeArticles(int n) {
-		for (int i = 0; i < n; i++) {
-			Log.i(WikiPaper.WP_LOGTAG,
-					"inserting random article "
-			+ Integer.toString(i+1) + "/" + Integer.toString(n));
+		Article[] alist = WikiParse.getRandomArticles(n);
+		for (Article a : alist) {
 			ContentValues cv = new ContentValues();
-			cv.put(KEY_ARTICLE_SUMMARY, WikiParse.getRandomArticleSummary());
+			cv.put(KEY_ARTICLE_SUMMARY, a.summary);
+			cv.put(KEY_ARTICLE_TITLE, a.title);
 			mDb.insert(DATABASE_TABLE, null, cv);
 		}
 	}
-	
-	public String GetUnusedArticle(int replenish_rate) {
-		Cursor mCursor =
-		mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
-				KEY_ARTICLE_SUMMARY, KEY_USED }, KEY_USED + "= 0", null,
-				null, null, null, null);
+
+	public Article GetUnusedArticle(int replenish_rate) {
+		maybeReplenishDb(replenish_rate);
+
+		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
+				KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null, null,
+				null, null, KEY_USED + " ASC", "1");
+
+		if (c != null) {
+			c.moveToFirst();
+
+			// update the used count:
+			String updateSql = String.format(
+					"UPDATE %s SET %s=%s + 1 WHERE %s=%s", DATABASE_TABLE,
+					KEY_USED, KEY_USED, KEY_ROW_ID,
+					c.getString(c.getColumnIndex(KEY_ROW_ID)));
+			mDb.execSQL(updateSql);
+
+			// return the article
+			Article a = new Article();
+			a.summary = c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY));
+			a.title = c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE));
+			return a;
+		} else {
+			return null;
+		}
+	}
+
+	public void maybeReplenishDb(int replenish_rate) {
+		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_USED },
+				KEY_USED + "= 0", null, null, null, null, null);
 		int narticles;
-		if (mCursor != null) {
-			narticles = mCursor.getCount(); 
+		if (c != null) {
+			narticles = c.getCount();
 			if (narticles < LOW_ROWS_THRESHOLD) {
 				Log.i(WikiPaper.WP_LOGTAG,
 						"Need to replenish article supply...");
 				InsertSomeArticles(replenish_rate);
-				
-				// if we're running on a fresh db, we need to
-				// re-run the query to get the articles we just
-				// inserted
-				if (narticles == 0) {
-					mCursor = mDb.query(true, DATABASE_TABLE,
-							new String[] {
-							KEY_ROW_ID, KEY_ARTICLE_SUMMARY, KEY_USED },
-							KEY_USED + "= 0", null, null, null, null, null);
-					if (mCursor == null) {
-						Log.e(WikiPaper.WP_LOGTAG, "Okay, mCursor is still null... Not good.");
-						return null;
-					} else {
-						narticles = mCursor.getCount();
-						if (narticles == 0) {
-							Log.e(WikiPaper.WP_LOGTAG, "Okay, db still looks empty... Not good.");
-							return null;
-						}
-					}
-				} // eo narticles was 0
-			} // eo narticles < LOW_ROWS_THRESHOLD
-			
-			// retrieve the row and return the summary:
-			mCursor.moveToFirst();
-			String updateSql = String.format("UPDATE %s SET %s=%s + 1 WHERE %s=%s",
-					DATABASE_TABLE, KEY_USED, KEY_USED, KEY_ROW_ID,
-					mCursor.getString(mCursor.getColumnIndex(KEY_ROW_ID)));
-			mDb.execSQL(updateSql);
-			printEntireDb();
-			return mCursor.getString(
-					mCursor.getColumnIndex(KEY_ARTICLE_SUMMARY));
+			}
 		}
-		return null;
 	}
-	
+
 	public void printEntireDb() {
-		Cursor mCursor = mDb.query(true, DATABASE_TABLE, new String[] {
-				KEY_ROW_ID, KEY_ARTICLE_SUMMARY, KEY_USED }, null, null, null,
-				null, null, null);
-		if (!mCursor.moveToFirst()) {
+		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
+				KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null, null,
+				null, null, null, null);
+		if (c == null)
+			return;
+		if (!c.moveToFirst()) {
 			Log.e(WikiPaper.WP_LOGTAG, "crap, nothing in the DB to print...");
 		}
 		do {
 			Log.i(WikiPaper.WP_LOGTAG,
 					"Here's one: \n"
-							+ mCursor.getString(mCursor
-									.getColumnIndex(KEY_ROW_ID))
+							+ c.getString(c.getColumnIndex(KEY_ROW_ID))
 							+ " "
-							+ mCursor.getString(mCursor
-									.getColumnIndex(KEY_USED))
+							+ c.getString(c.getColumnIndex(KEY_USED))
 							+ " "
-							+ mCursor.getString(mCursor
-									.getColumnIndex(KEY_ARTICLE_SUMMARY)));
-		} while (mCursor.moveToNext());
+							+ c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE))
+							+ " "
+							+ c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY)));
+		} while (c.moveToNext());
+	}
+
+	public DbStats getDbStats() {
+		Cursor c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
+				null, null, null, null, null, null);
+		if (c == null)
+			return null;
+		int nArticles = c.getCount();
+
+		c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED }, KEY_USED
+				+ " = 0", null, null, null, null, null);
+
+		int nUnusedArticles = c.getCount();
+		return new DbStats(nArticles, nUnusedArticles);
 	}
 
 }
