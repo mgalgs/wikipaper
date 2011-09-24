@@ -3,9 +3,10 @@ package com.mgalgs.wikipaper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -23,20 +24,31 @@ public class WikiPaper extends WallpaperService {
 	public static final String WP_LOGTAG= "WikiPaper Log";
 
 	//private static final long DEFAULT_UPDATE_SUMMARY_DELAY_MS = 3600000; // 10 minutes
-	private static final long DEFAULT_UPDATE_SUMMARY_DELAY_MS = 20000; // 20 seconds
+	private static final long DEFAULT_SWAP_SUMMARY_DELAY_MS = 20000; // 20 seconds
+
+	private static final int MAX_ARTICLE_BUFFERING_AT_A_TIME = 4;
+
+	private static final long DEFAULT_CACHE_UPDATE_DELAY_MS = 5000; // 5 seconds
 	
 	private final Handler mHandler = new Handler();
 	private Article mArticle = new Article();
+	private int mHeightOfThisArticle = -1;
     private long mLastArticleSwap = -1;
-	private TimerTask mUpdateSummaryTextTask;
-	private Timer mUpdateSummaryTextTimer = new Timer();
 	private Semaphore mArticleAndUpdateTimeMutex = new Semaphore(1);
 	private boolean showStats = true;
 
+	private final ScheduledExecutorService mExecutorService = Executors
+			.newScheduledThreadPool(2);
 
 	private DataManager mDataManager;
 
-	private long mUpdateSummaryTextDelay_ms = DEFAULT_UPDATE_SUMMARY_DELAY_MS;
+	private long mSwapDisplayedArticleDelay_ms = DEFAULT_SWAP_SUMMARY_DELAY_MS;
+	private long mCacheUpdateDelay_ms = DEFAULT_CACHE_UPDATE_DELAY_MS;
+
+	private CacheUpdater mCurrentlyRunningCacheUpdater;
+
+	private int mBufferingCnt = 1;
+
 
     @Override
     public void onCreate() {
@@ -51,41 +63,88 @@ public class WikiPaper extends WallpaperService {
 		mArticle.summary = getString(R.string.load_text);
 		mArticle.title = getString(R.string.load_title);
 
-        mUpdateSummaryTextTask = new TimerTask() {
-			@Override
-			public void run() {
-				DbStats d = mDataManager.getDbStats();
-				int howManyToBuffer = 5;
-				if (d.nArticles == 0)
-					howManyToBuffer = 1;
-
-				Article a = mDataManager.GetUnusedArticle(howManyToBuffer);
-				if (a != null) {
-					try {
-						mArticleAndUpdateTimeMutex.acquire();
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-						Log.e(WP_LOGTAG, "Semaphore interruption???");
-						return;
-					}
-					mArticle = a;
-					mLastArticleSwap = SystemClock.elapsedRealtime();
-					mArticleAndUpdateTimeMutex.release();
-				} else {
-					Log.e(WP_LOGTAG, "Error getting more articles in the background...");
-				}
-			}
-		};
-		mUpdateSummaryTextTimer.scheduleAtFixedRate(
-				mUpdateSummaryTextTask,
-				0, // start immediately
-				mUpdateSummaryTextDelay_ms);
+		scheduleCacheUpdate(100,
+				false, // one-time update
+				true // force ui update
+				);
+		scheduleCacheUpdate(10000,
+				true, // forever updating
+				false //no ui updates
+				);
+		// start the article swapping:
+		mExecutorService.schedule(new ArticleSwapper(),
+				mSwapDisplayedArticleDelay_ms, TimeUnit.MILLISECONDS);
     } // eo onCreate
+
+    private void scheduleCacheUpdate(long delay_ms, boolean repeating, boolean doUiUpdate) {
+    	if (repeating && mBufferingCnt  < MAX_ARTICLE_BUFFERING_AT_A_TIME)
+    		mBufferingCnt *= 2;
+
+    	mCurrentlyRunningCacheUpdater = new CacheUpdater(mBufferingCnt, repeating, doUiUpdate);
+		mExecutorService.schedule(mCurrentlyRunningCacheUpdater, delay_ms,
+				TimeUnit.MILLISECONDS);
+    }
+
+    public class CacheUpdater implements Runnable {
+    	private int mHowManyToBuffer;
+    	private boolean mRepeating;
+    	private boolean mDoUiUpdate;
+
+    	CacheUpdater(int howManyToBuffer, boolean repeating, boolean doUiUpdate) {
+    		mHowManyToBuffer = howManyToBuffer;
+    		mRepeating= repeating;
+    		mDoUiUpdate = doUiUpdate;
+    	}
+
+		@Override
+		public void run() {
+			mDataManager.maybeReplenishDb(mHowManyToBuffer);
+			if (mDoUiUpdate)
+				doArticleSwap();
+			if (mRepeating)
+				scheduleCacheUpdate(mCacheUpdateDelay_ms, mRepeating, mDoUiUpdate);
+		}
+    }
+    
+    public class ArticleSwapper implements Runnable {
+    	@Override
+    	public void run() {
+    		doArticleSwap();
+			mExecutorService.schedule(new ArticleSwapper(),
+					mSwapDisplayedArticleDelay_ms, TimeUnit.MILLISECONDS);
+    	}
+    }
+    
+    public void doArticleSwap() {
+		try {
+			Article a = mDataManager.GetUnusedArticle();
+			if (a != null) {
+				try {
+					mArticleAndUpdateTimeMutex.acquire();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					Log.e(WP_LOGTAG, "Semaphore interruption???");
+					return;
+				}
+				mArticle = a;
+				mLastArticleSwap = SystemClock.elapsedRealtime();
+				mHeightOfThisArticle = -1;
+				mArticleAndUpdateTimeMutex.release();
+			} else {
+				Log.e(WP_LOGTAG,
+						"Looks like we're out of articles...");
+			}
+		} catch(Exception e) {
+			Log.e(WP_LOGTAG, "Wow!!! Exception doing article update");
+			e.printStackTrace();
+		}
+	}
+
 
     @Override
     public void onDestroy() {
     	Log.i(WP_LOGTAG, "onDestroy'ing WikiPaper");
-    	mUpdateSummaryTextTimer.cancel();
+    	mExecutorService.shutdown();
         super.onDestroy();
         mDataManager.close();
     }
@@ -100,7 +159,7 @@ public class WikiPaper extends WallpaperService {
     
 	class WikiPaperEngine extends Engine {
 		
-		private static final int DEFAULT_FRAME_RATE = 10; // fps
+		private static final int DEFAULT_FRAME_RATE = 15; // fps
 		private final Paint mSummaryTextPaint = new Paint();
 		private final Paint mTitleTextPaint = new Paint();
 		private final Paint mStatsTextPaint = new Paint();
@@ -136,6 +195,7 @@ public class WikiPaper extends WallpaperService {
 		private float mSummaryTextFontSize = 30;
 		private float mTitleFontSize = 60;
 		private float mStatsTextFontSize = 15;
+		private int mTitleOffset = 60;
 
 		public WikiPaperEngine() {
 			// Create a Paint to draw the text
@@ -279,8 +339,6 @@ public class WikiPaper extends WallpaperService {
 		
 		
         void drawPaper(Canvas c) {
-            //c.save();
-            //c.translate(mCenterX, mCenterY);
             c.drawColor(0xff000000);
             
             try {
@@ -294,48 +352,74 @@ public class WikiPaper extends WallpaperService {
             String title = mArticle.title;
             mArticleAndUpdateTimeMutex.release();
 
-            int textHeight = c.getHeight() - mTextOffset_y - mTextPadding_topbottom ;
-            int textWidth = c.getWidth() - mTextOffset_x - mTextPadding_sides;
-            int y = mTextOffset_y;
-            y = drawSomeText(title, c, mTitleTextPaint, textWidth, textHeight,
-            		mTextOffset_x, y);
-            y = drawSomeText(summary, c, mSummaryTextPaint, textWidth, textHeight,
-            		mTextOffset_x, y + (mTextPadding_topbottom / 2));
+            long ms_since_refresh = SystemClock.elapsedRealtime() - mLastArticleSwap; 
+
+            int heightAvailable = c.getHeight() - mTextOffset_y - mTextPadding_topbottom ;
+            int widthAvailable = c.getWidth() - mTextOffset_x - mTextPadding_sides;
+            int titleHeight = drawSomeText(title, c, mTitleTextPaint, widthAvailable, heightAvailable,
+            		mTextOffset_x, mTitleOffset, false);
+
+            c.save();
+            c.translate(0, titleHeight + mTitleOffset + mTextPadding_topbottom);
             
+            int y = (int)(heightAvailable / 2)
+            		- (int)lerp((float)ms_since_refresh,
+            				0F, (float)mSwapDisplayedArticleDelay_ms,
+            				0F, (float)((heightAvailable) + mHeightOfThisArticle));
+
+            int articleHeight = 0;
+            int thisTextHeight;
+            thisTextHeight = drawSomeText(summary, c, mSummaryTextPaint, widthAvailable, heightAvailable,
+            		mTextOffset_x, y + (mTextPadding_topbottom / 2), true);
+            articleHeight += thisTextHeight;
+            y += thisTextHeight + mTextPadding_topbottom;
+
             if (showStats) {
             	DbStats d = mDataManager.getDbStats();
             	String txt;
             	if (d != null) {
 					txt = String
 							.format("Cache stats: %d unused articles, %d total articles",
-									d.nUnusedArticles, d.nArticles);
-					y = drawSomeText(txt, c, mStatsTextPaint, textWidth,
-							textHeight, mTextOffset_x, y
-									+ (mTextPadding_topbottom / 2));
+									d.numUnusedArticles, d.numArticles);
+					thisTextHeight = drawSomeText(txt, c, mStatsTextPaint, widthAvailable,
+							heightAvailable, mTextOffset_x, y
+									+ (mTextPadding_topbottom / 2), true);
+					articleHeight += thisTextHeight;
+					y += thisTextHeight + mTextPadding_topbottom;
             	}
 				if (mLastArticleSwap != -1) {
-					int s_til_refresh = (int) ((mLastArticleSwap
-							+ mUpdateSummaryTextDelay_ms
-							- SystemClock.elapsedRealtime())/1000);
+					long ms_til_refresh = mSwapDisplayedArticleDelay_ms - ms_since_refresh;
+					int s_til_refresh = (int) ms_til_refresh/1000;
 					if (s_til_refresh < 0) {
 						txt = "Refreshing...";
 					} else {
 						txt = String.format("%d seconds until next refresh",
 								s_til_refresh);
 					}
-					y = drawSomeText(txt, c, mStatsTextPaint, textWidth,
-							textHeight, mTextOffset_x, y
-									+ (mTextPadding_topbottom / 2));
-
+					thisTextHeight = drawSomeText(txt, c, mStatsTextPaint, widthAvailable,
+							heightAvailable, mTextOffset_x, y
+									+ (mTextPadding_topbottom / 2), true);
+					articleHeight += thisTextHeight;
+					y += thisTextHeight + mTextPadding_topbottom;
 				}
             }
 
-            //c.restore();
+			if (articleHeight == -1) {
+				try {
+					mArticleAndUpdateTimeMutex.acquire();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				mHeightOfThisArticle = articleHeight;
+				mArticleAndUpdateTimeMutex.release();
+			}
+
+            c.restore();
         }
 
         // returns the last y location we painted at
         int drawSomeText(String txt, Canvas c, Paint p, int textWidth, int textHeight,
-        		int startX, int startY) {
+        		int startX, int startY, boolean cutOffTop) {
 			String line = "";
 			List<String> words = Arrays.asList(txt.split(" "));
 			List<String> lines = new ArrayList<String>();
@@ -352,19 +436,31 @@ public class WikiPaper extends WallpaperService {
 
 			// fix up the initial y offset:
 			Rect b = new Rect();
-			p.getTextBounds("A", 0, 1, b);
+			p.getTextBounds("M", 0, 1, b);
+			int heightOfAnM = (int)(b.height() * 1.5);
 
-			int y_txt = startY + b.height();
+			int y_txt = startY + heightOfAnM;
 			int x_txt = startX;
+        	int totalHeight = 0;
 			for (String thisLine : lines) {
-				c.drawText(thisLine, x_txt, y_txt, p);
-
-				Rect bounds = new Rect();
-				p.getTextBounds(thisLine, 0, thisLine.length(), bounds);
-				y_txt += bounds.height();
+				if (!(cutOffTop && y_txt < heightOfAnM))
+					c.drawText(thisLine, x_txt, y_txt, p);
+				y_txt += heightOfAnM;
+				totalHeight += heightOfAnM;
 			}
-			return y_txt;
+			return totalHeight;
 		}
+        
+        // returns the linear interpolation of the value given the two ranges
+        // For example, if you have a number in the
+        // range [0..500] that you'd like to map to a number in the range
+        // [0..255] you would call this function like so:
+        // newVal = edm.lerp(num, 0,500, 0,255)
+        public float lerp(float val, float x0, float x1, float y0, float y1) {
+        	// equation taken from http://en.wikipedia.org/wiki/Linear_interpolation
+        	return y0 + (val - x0)*((y1-y0)/(x1-x0));
+        }
+
 
         /*
          * Draw a circle around the current touch point, if any.

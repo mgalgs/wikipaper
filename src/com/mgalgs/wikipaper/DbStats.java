@@ -1,11 +1,11 @@
 package com.mgalgs.wikipaper;
 
 public final class DbStats {
-	public int nArticles;
-	public int nUnusedArticles;
+	public int numArticles;
+	public int numUnusedArticles;
 
 	DbStats(int nArticles_, int nUnusedArticles_) {
-		nArticles = nArticles_;
-		nUnusedArticles = nUnusedArticles_;
+		numArticles = nArticles_;
+		numUnusedArticles = nUnusedArticles_;
 	}
 }

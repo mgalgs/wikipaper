@@ -24,7 +24,7 @@ public final class DataManager {
 			+ " INTEGER PRIMARY KEY AUTOINCREMENT," + KEY_USED
 			+ " INTEGER DEFAULT 0," + KEY_ARTICLE_TITLE + " TEXT NOT NULL,"
 			+ KEY_ARTICLE_SUMMARY + " TEXT NOT NULL);";
-	private static final int LOW_ROWS_THRESHOLD = 5;
+	public int mLowRowsThreshold = 20;
 
 	private DatabaseHelper mDbHelper;
 	private SQLiteDatabase mDb;
@@ -65,7 +65,7 @@ public final class DataManager {
 		mDbHelper.close();
 	}
 
-	private void InsertSomeArticles(int n) {
+	public void InsertSomeArticles(int n) {
 		Article[] alist = WikiParse.getRandomArticles(n);
 		for (Article a : alist) {
 			ContentValues cv = new ContentValues();
@@ -75,9 +75,7 @@ public final class DataManager {
 		}
 	}
 
-	public Article GetUnusedArticle(int replenish_rate) {
-		maybeReplenishDb(replenish_rate);
-
+	public Article GetUnusedArticle() {
 		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
 				KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null, null,
 				null, null, KEY_USED + " ASC", "1");
@@ -96,6 +94,7 @@ public final class DataManager {
 			Article a = new Article();
 			a.summary = c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY));
 			a.title = c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE));
+			c.close();
 			return a;
 		} else {
 			return null;
@@ -103,19 +102,32 @@ public final class DataManager {
 	}
 
 	public void maybeReplenishDb(int replenish_rate) {
-		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_USED },
-				KEY_USED + "= 0", null, null, null, null, null);
-		int narticles;
-		if (c != null) {
-			narticles = c.getCount();
-			if (narticles < LOW_ROWS_THRESHOLD) {
-				Log.i(WikiPaper.WP_LOGTAG,
-						"Need to replenish article supply...");
-				InsertSomeArticles(replenish_rate);
-			}
+		DbStats d = getDbStats();
+		if (d == null)
+			return;
+		if (d.numUnusedArticles < mLowRowsThreshold) {
+			Log.i(WikiPaper.WP_LOGTAG, "Need to replenish article supply...");
+			InsertSomeArticles(replenish_rate);
 		}
 	}
 
+
+	public DbStats getDbStats() {
+		Cursor c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
+				null, null, null, null, null, null);
+		if (c == null) return null;
+		int nArticles = c.getCount();
+		c.close();
+
+		c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED }, KEY_USED
+				+ " = 0", null, null, null, null, null);
+
+		if (c == null) return null;
+		int nUnusedArticles = c.getCount();
+		c.close();
+		return new DbStats(nArticles, nUnusedArticles);
+	}
+	
 	public void printEntireDb() {
 		Cursor c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_ROW_ID,
 				KEY_ARTICLE_SUMMARY, KEY_ARTICLE_TITLE, KEY_USED }, null, null,
@@ -136,20 +148,7 @@ public final class DataManager {
 							+ " "
 							+ c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY)));
 		} while (c.moveToNext());
-	}
-
-	public DbStats getDbStats() {
-		Cursor c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
-				null, null, null, null, null, null);
-		if (c == null)
-			return null;
-		int nArticles = c.getCount();
-
-		c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED }, KEY_USED
-				+ " = 0", null, null, null, null, null);
-
-		int nUnusedArticles = c.getCount();
-		return new DbStats(nArticles, nUnusedArticles);
+		c.close();
 	}
 
 }

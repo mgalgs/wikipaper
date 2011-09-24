@@ -26,7 +26,6 @@ public class WikiParse {
         qs.add("pageid", Integer.toString(articleId));
         qs.add("prop", "text");
 
-        Log.d(WikiPaper.WP_LOGTAG, "trying to get article json");
         return RestClient.connect(qs.getQuery());
     }
 
@@ -35,9 +34,13 @@ public class WikiParse {
 		try {
 			JSONArray jsonrandroot = getRandomArticlesJSON(nArticles)
 					.getJSONObject("query").getJSONArray("random");
+			Log.i(WikiPaper.WP_LOGTAG, String.format(
+					"Downloaded %d article json specs", nArticles));
 			for (int i = 0; i < nArticles; i++) {
 				JSONObject j = jsonrandroot.getJSONObject(i);
 				JSONObject article_json = getArticleJSON(j.getInt("id"));
+				Log.i(WikiPaper.WP_LOGTAG,
+						String.format("Downloaded article %d/%d", i+1, nArticles));
 
 				Article a = new Article();
 				a.summary = extractArticleSummaryFromJSON(article_json);
