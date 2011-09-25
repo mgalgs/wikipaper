@@ -31,6 +31,7 @@ public final class R {
         public static final int load_title=0x7f050003;
         public static final int wp_settings=0x7f050004;
         public static final int wp_settings_article_refresh_rate=0x7f05000c;
+        public static final int wp_settings_article_refresh_rate_summary=0x7f05000d;
         public static final int wp_settings_frame_rate=0x7f050008;
         public static final int wp_settings_frame_rate_summary=0x7f050009;
         public static final int wp_settings_fresh_articles=0x7f05000a;

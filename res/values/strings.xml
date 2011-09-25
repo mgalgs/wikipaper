@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">WikiPaper</string>
     <string name="app_description">Random Wikipedia articles delivered straight to your home screen.</string>
-    <string name="load_text">Please wait while we pull down some articles from our old friend Wikipedia... Note: by default we only download articles over WiFi. To enable downloading over the mobile network please push the Settings button.</string>
+    <string name="load_text">Please wait while we pull down some articles from our old friend Wikipedia... Note: by default articles are only downloaded over WiFi. To enable downloading over the mobile network please push the Settings button.</string>
     <string name="load_title">Loading...</string>
 
 
@@ -43,6 +43,7 @@
     </string-array>
 
     <string name="wp_settings_article_refresh_rate">Article Refresh Rate</string>
+    <string name="wp_settings_article_refresh_rate_summary">How often to change the displayed article</string>
     <string-array name="wp_settings_article_refresh_rate_choices">
     	<item>"15 Seconds"</item>
     	<item>"30 Seconds"</item>

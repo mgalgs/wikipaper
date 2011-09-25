@@ -144,7 +144,6 @@ public class WikiPaper extends WallpaperService {
 		mArticle.summary = getString(R.string.load_text);
 		mArticle.title = getString(R.string.load_title);
 		mArticleAndUpdateTimeMutex.release();
-		updateArticlePicture();
 
 		// preferences:
 		mPrefs = WikiPaper.this.getSharedPreferences(SHARED_PREFS_NAME, 0);
@@ -333,6 +332,8 @@ public class WikiPaper extends WallpaperService {
 			}
 		};
 
+		private boolean firstDraw = true;
+
 		public WikiPaperEngine() {
 			// Create a Paint to draw the text
 			final Paint tpaint = mTouchPaint;
@@ -404,6 +405,10 @@ public class WikiPaper extends WallpaperService {
 			mCenterY = height / 2.0f;
 			mWidth = width;
 			mHeight = height;
+			if (firstDraw ) {
+				updateArticlePicture();
+				firstDraw = false;
+			}
 			drawFrame();
 		}
 

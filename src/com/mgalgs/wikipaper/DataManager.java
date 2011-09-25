@@ -118,7 +118,7 @@ public final class DataManager {
 			return;
 		if (d.numUnusedArticles < mLowRowsThreshold) {
 			Log.i(WikiPaper.WP_LOGTAG, "Need to replenish article supply...");
-			InsertSomeArticles(replenish_rate);
+			InsertSomeArticles(d.numUnusedArticles == 0 ? 1 : replenish_rate);
 		}
 	}
 

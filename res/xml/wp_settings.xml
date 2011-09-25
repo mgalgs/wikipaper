@@ -14,6 +14,7 @@
 	<ListPreference
 		android:key="wp_article_refresh_rate"
 		android:title="@string/wp_settings_article_refresh_rate"
+		android:summary="@string/wp_settings_article_refresh_rate_summary"
 		android:entries="@array/wp_settings_article_refresh_rate_choices"
 		android:entryValues="@array/wp_settings_article_refresh_rate_values"
 		android:defaultValue="60"

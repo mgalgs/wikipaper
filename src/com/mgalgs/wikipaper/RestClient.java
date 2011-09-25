@@ -78,6 +78,7 @@ public class RestClient {
 		HttpResponse response;
 		String result = "bogus";
 		try {
+			Log.d(WikiPaper.WP_LOGTAG, "Downloading " + url);
 			response = httpclient.execute(httpget);
 
 			// Get hold of the response entity
@@ -95,6 +96,7 @@ public class RestClient {
 					return null;
 				}
 
+				Log.d(WikiPaper.WP_LOGTAG, "Got download result: " + result);
 				// A Simple JSONObject Creation
 				json = new JSONObject(result);
 
