@@ -92,13 +92,13 @@ public final class DataManager {
 				String updateSql = String.format(
 						"UPDATE %s SET %s=%s + 1 WHERE %s=%s", DATABASE_TABLE,
 						KEY_USED, KEY_USED, KEY_ROW_ID,
-						c.getString(c.getColumnIndex(KEY_ROW_ID)));
+						c.getString(c.getColumnIndexOrThrow(KEY_ROW_ID)));
 				mDb.execSQL(updateSql);
 
 				// return the article
 				Article a = new Article();
-				a.summary = c.getString(c.getColumnIndex(KEY_ARTICLE_SUMMARY));
-				a.title = c.getString(c.getColumnIndex(KEY_ARTICLE_TITLE));
+				a.summary = c.getString(c.getColumnIndexOrThrow(KEY_ARTICLE_SUMMARY));
+				a.title = c.getString(c.getColumnIndexOrThrow(KEY_ARTICLE_TITLE));
 				return a;
 			} else {
 				return null;
@@ -113,45 +113,44 @@ public final class DataManager {
 	}
 
 	public void maybeReplenishDb(int replenish_rate) {
-		DbStats d = getDbStats();
-		if (d == null)
-			return;
-		if (d.numUnusedArticles < mLowRowsThreshold) {
+		int n = getNumUnusedArticles();
+		if (n < mLowRowsThreshold) {
 			Log.i(WikiPaper.WP_LOGTAG, "Need to replenish article supply...");
-			InsertSomeArticles(d.numUnusedArticles == 0 ? 1 : replenish_rate);
+			InsertSomeArticles(n == 0 ? 1 : replenish_rate);
 		}
+	}
+	
+	public int getNumUnusedArticles() {
+		Cursor c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED },
+				KEY_USED + " = 0", null, null, null, null, null);
+		if (c == null)
+			return -1;
+		int res = c.getCount();
+		c.close();
+		return res;
 	}
 
 
 	public DbStats getDbStats() {
 		Cursor c = null;
-		int nArticles = -1;
+		int nArticles;
+		int nUnusedArticles;
+		int maxUsedArticleUses;
+		String maxUsedArticle;
+		
 		try {
-			c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
-					null, null, null, null, null, null);
+			// number of unused articles
+			nUnusedArticles = getNumUnusedArticles();
+
+			// max used article and number of articles
+			c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_USED, KEY_ARTICLE_TITLE },
+					null, null, null, null, KEY_USED + " DESC", null);
 			if (c == null)
 				return null;
 			nArticles = c.getCount();
-		} catch (Exception e) {
-			Log.e(WikiPaper.WP_LOGTAG, "Error getting nArticles stats");
-			e.printStackTrace();
-			return null;
-		} finally {
-			if (c != null)
-				c.close();
-		}
-
-		try {
-			c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED },
-					KEY_USED + " = 0", null, null, null, null, null);
-
-			if (c == null)
-				return null;
-			int nUnusedArticles = c.getCount();
-			c.deactivate();
-			c.close();
-			c = null;
-			return new DbStats(nArticles, nUnusedArticles);
+			c.moveToFirst();
+			maxUsedArticle = c.getString(c.getColumnIndexOrThrow(KEY_ARTICLE_TITLE));
+			maxUsedArticleUses = c.getInt(c.getColumnIndexOrThrow(KEY_USED));
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -159,6 +158,8 @@ public final class DataManager {
 			if(c != null)
 				c.close();
 		}
+		
+		return new DbStats(nArticles, nUnusedArticles, maxUsedArticle, maxUsedArticleUses);
 	}
 	
 	public void printEntireDb() {
@@ -176,15 +177,15 @@ public final class DataManager {
 			do {
 				Log.i(WikiPaper.WP_LOGTAG,
 						"Here's one: \n"
-								+ c.getString(c.getColumnIndex(KEY_ROW_ID))
+								+ c.getString(c.getColumnIndexOrThrow(KEY_ROW_ID))
 								+ " "
-								+ c.getString(c.getColumnIndex(KEY_USED))
-								+ " "
-								+ c.getString(c
-										.getColumnIndex(KEY_ARTICLE_TITLE))
+								+ c.getString(c.getColumnIndexOrThrow(KEY_USED))
 								+ " "
 								+ c.getString(c
-										.getColumnIndex(KEY_ARTICLE_SUMMARY)));
+										.getColumnIndexOrThrow(KEY_ARTICLE_TITLE))
+								+ " "
+								+ c.getString(c
+										.getColumnIndexOrThrow(KEY_ARTICLE_SUMMARY)));
 			} while (c.moveToNext());
 		} catch (Exception e) {
 			e.printStackTrace();

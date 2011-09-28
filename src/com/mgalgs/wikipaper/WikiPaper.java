@@ -73,10 +73,12 @@ public class WikiPaper extends WallpaperService {
 	private int mTitleOffset = 60;
 	private Picture mSummaryPicture = new Picture();
 	private Picture mTitlePicture = new Picture();
+	private DbStats mDbStats = null;
 
 	private int mArticleHeight = -1;
 	private int mTitleHeight;
 	private int mStatsHeight;
+	private int mHeightOfAnM_Stats;
 
 	private int mTextColor = 0xaaffffff;
 	private int mBackgroundColor = 0xff000000;
@@ -110,7 +112,8 @@ public class WikiPaper extends WallpaperService {
 		mStatsTextPaint.setTextSize(mStatsTextFontSize);
 		Rect b = new Rect();
 		mStatsTextPaint.getTextBounds("M", 0, 1, b);
-		mStatsHeight = (int) ((b.height() * 1.5)) * 2; // 2 lines in stats
+		mHeightOfAnM_Stats = b.height();
+		mStatsHeight = (int) ((mHeightOfAnM_Stats * 1.5)) * 7; // 7 lines in stats
 
 		mTitleTextPaint.setColor(mTextColor);
 		mTitleTextPaint.setAntiAlias(true);
@@ -228,7 +231,7 @@ public class WikiPaper extends WallpaperService {
 				}
 				mArticle = a;
 				mLastArticleSwap = SystemClock.elapsedRealtime();
-				updateArticlePicture();
+				onArticleRefresh();
 				mArticleAndUpdateTimeMutex.release();
 			} else {
 				Log.e(WP_LOGTAG,
@@ -240,7 +243,7 @@ public class WikiPaper extends WallpaperService {
 		}
 	}
     
-	public void updateArticlePicture() {
+	public void onArticleRefresh() {
 		Canvas c = mSummaryPicture.beginRecording(mWidth, mHeight);
 		mArticleHeight = drawSomeText(mArticle.summary, c, mSummaryTextPaint,
 				mWidth - mTextPadding_sides, mHeight, mTextPadding_topbottom / 2,
@@ -251,6 +254,8 @@ public class WikiPaper extends WallpaperService {
 		mTitleHeight = drawSomeText(mArticle.title, c, mTitleTextPaint, mWidth
 				- mTextPadding_sides, mHeight, mTextPadding_topbottom / 2, mTitleOffset);
 		mTitlePicture.endRecording();
+		
+		mDbStats = mDataManager.getDbStats();
 	}
     
 	// returns the last y location we painted at
@@ -261,12 +266,17 @@ public class WikiPaper extends WallpaperService {
 		List<String> lines = new ArrayList<String>();
 		// TODO: replace this with breakText
 		for (String word : words) {
-			String newword = " " + word;
-			if (p.measureText(line + newword) > textWidth) {
+			if (word.endsWith("\n")) {
+				word = word.replace('\n', ' ');
+				line += " " + word;
 				lines.add(line);
 				line = "";
+			} else if (p.measureText(line + " " + word) > textWidth) {
+				lines.add(line);
+				line = word;
+			} else {
+				line += " " + word;
 			}
-			line += newword;
 		}
 		lines.add(line); // add the last line
 
@@ -406,7 +416,7 @@ public class WikiPaper extends WallpaperService {
 			mWidth = width;
 			mHeight = height;
 			if (firstDraw ) {
-				updateArticlePicture();
+				onArticleRefresh();
 				firstDraw = false;
 			}
 			drawFrame();
@@ -531,15 +541,18 @@ public class WikiPaper extends WallpaperService {
             c.drawRect(0, stats_y, mWidth, mHeight, mBackgroundPaint);
             
 			if (showStats && articleHeight != -1) {
-				DbStats d = mDataManager.getDbStats();
 				String txt;
-				if (d != null) {
-					txt = String
-							.format("Cache stats: %d unused article%s, %d total article%s",
-									d.numUnusedArticles,
-									d.numUnusedArticles == 1 ? "" : "s",
-									d.numArticles, d.numArticles == 1 ? ""
-											: "s");
+				if (mDbStats != null) {
+					txt = String.format("Cache stats:\n"
+							+ "   %d unused article%s, %d total article%s\n"
+							+ "   Most used article: %s (used %d time%s)",
+							mDbStats.numUnusedArticles,
+							mDbStats.numUnusedArticles == 1 ? "" : "s",
+							mDbStats.numArticles,
+							mDbStats.numArticles == 1 ? "" : "s",
+							mDbStats.maxUsedArticle,
+							mDbStats.maxUsedArticleUses,
+							mDbStats.maxUsedArticleUses == 1 ? "" : "s");
 					stats_y += drawSomeText(txt, c, mStatsTextPaint, mWidth,
 							mHeight, mTextPadding_topbottom / 2, stats_y
 									+ (mTextPadding_topbottom / 2));
@@ -554,6 +567,7 @@ public class WikiPaper extends WallpaperService {
 						txt = String.format("%d second%s until next refresh",
 								s_til_refresh, s_til_refresh == 1 ? "" : "s");
 					}
+					stats_y += mHeightOfAnM_Stats; // "carriage return"
 					stats_y += drawSomeText(txt, c, mStatsTextPaint, mWidth,
 							mHeight, mTextPadding_topbottom / 2, stats_y
 									+ (mTextPadding_topbottom / 2));
