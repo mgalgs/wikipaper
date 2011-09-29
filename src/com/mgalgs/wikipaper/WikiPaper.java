@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import android.content.SharedPreferences;
@@ -40,7 +39,6 @@ public class WikiPaper extends WallpaperService {
 	
 	private Article mArticle = new Article();
     private long mLastArticleSwap = -1;
-	private Semaphore mArticleAndUpdateTimeMutex = new Semaphore(1);
 	private boolean showStats = true;
 
 	private final ScheduledExecutorService mExecutorService = Executors
@@ -74,8 +72,9 @@ public class WikiPaper extends WallpaperService {
 	private Picture mSummaryPicture = new Picture();
 	private Picture mTitlePicture = new Picture();
 	private DbStats mDbStats = null;
+	private Object mDbStatsLock = new Object();
 
-	private int mArticleHeight = -1;
+	private int mSummaryHeight = -1;
 	private int mTitleHeight;
 	private int mStatsHeight;
 	private int mHeightOfAnM_Stats;
@@ -86,6 +85,8 @@ public class WikiPaper extends WallpaperService {
 	private boolean mWifiOnly = true;
 	
 	private SharedPreferences mPrefs;
+	private Object preferencesLock = new Object();
+
 
 	private ArticleSwapper mCurrentlyRunningSwapper;
 
@@ -134,19 +135,11 @@ public class WikiPaper extends WallpaperService {
         super.onCreate();
         
         
-        mDataManager = new DataManager(this);
         // open data manager and get an article
+        mDataManager = new DataManager(this);
         mDataManager.open();
-		try {
-			mArticleAndUpdateTimeMutex.acquire();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-			Log.e(WP_LOGTAG, "Semaphore interruption???");
-			return;
-		}
 		mArticle.summary = getString(R.string.load_text);
 		mArticle.title = getString(R.string.load_title);
-		mArticleAndUpdateTimeMutex.release();
 
 		// preferences:
 		mPrefs = WikiPaper.this.getSharedPreferences(SHARED_PREFS_NAME, 0);
@@ -196,7 +189,14 @@ public class WikiPaper extends WallpaperService {
 		@Override
 		public void run() {
 			ConnectivityManager connManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-			if (!mWifiOnly || connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI).isConnected()) {
+			Boolean wifiOnly;
+			synchronized (preferencesLock) {
+				wifiOnly = mWifiOnly;
+			}
+			if (!wifiOnly
+					|| connManager
+							.getNetworkInfo(ConnectivityManager.TYPE_WIFI)
+							.isConnected()) {
 				mDataManager.maybeReplenishDb(mHowManyToBuffer);
 			}
 			if (mDoUiUpdate)
@@ -219,43 +219,45 @@ public class WikiPaper extends WallpaperService {
     }
     
     public void doArticleSwap() {
-		try {
-			Article a = mDataManager.GetUnusedArticle();
-			if (a != null) {
-				try {
-					mArticleAndUpdateTimeMutex.acquire();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-					Log.e(WP_LOGTAG, "Semaphore interruption???");
-					return;
+		synchronized (mArticle) {
+			try {
+				Article a = mDataManager.GetUnusedArticle();
+				if (a != null) {
+					mArticle = a;
+					mLastArticleSwap = SystemClock.elapsedRealtime();
+					onArticleRefresh();
+				} else {
+					Log.e(WP_LOGTAG, "Looks like we're out of articles...");
 				}
-				mArticle = a;
-				mLastArticleSwap = SystemClock.elapsedRealtime();
-				onArticleRefresh();
-				mArticleAndUpdateTimeMutex.release();
-			} else {
-				Log.e(WP_LOGTAG,
-						"Looks like we're out of articles...");
+			} catch (Exception e) {
+				Log.e(WP_LOGTAG, "Wow!!! Exception doing article update");
+				e.printStackTrace();
 			}
-		} catch(Exception e) {
-			Log.e(WP_LOGTAG, "Wow!!! Exception doing article update");
-			e.printStackTrace();
 		}
 	}
-    
-	public void onArticleRefresh() {
-		Canvas c = mSummaryPicture.beginRecording(mWidth, mHeight);
-		mArticleHeight = drawSomeText(mArticle.summary, c, mSummaryTextPaint,
-				mWidth - mTextPadding_sides, mHeight, mTextPadding_topbottom / 2,
-				mTextPadding_topbottom / 2);
-		mSummaryPicture.endRecording();
 
-		c = mTitlePicture.beginRecording(mWidth, mHeight);
-		mTitleHeight = drawSomeText(mArticle.title, c, mTitleTextPaint, mWidth
-				- mTextPadding_sides, mHeight, mTextPadding_topbottom / 2, mTitleOffset);
-		mTitlePicture.endRecording();
-		
-		mDbStats = mDataManager.getDbStats();
+	public void onArticleRefresh() {
+		synchronized (mSummaryPicture) {
+			Canvas c = mSummaryPicture.beginRecording(mWidth, mHeight);
+			String theSummary = mArticle.summary.length() > 4 ? mArticle.summary
+					: "Empty article";
+			mSummaryHeight = drawSomeText(theSummary, c, mSummaryTextPaint,
+					mWidth - mTextPadding_sides, mHeight,
+					mTextPadding_topbottom / 2, mTextPadding_topbottom / 2);
+			mSummaryPicture.endRecording();
+		}
+
+		synchronized (mTitlePicture) {
+			Canvas c = mTitlePicture.beginRecording(mWidth, mHeight);
+			mTitleHeight = drawSomeText(mArticle.title, c, mTitleTextPaint,
+					mWidth - mTextPadding_sides, mHeight,
+					mTextPadding_topbottom / 2, mTitleOffset);
+			mTitlePicture.endRecording();
+		}
+
+		synchronized (mDbStatsLock) {
+			mDbStats = mDataManager.getDbStats();
+		}
 	}
     
 	// returns the last y location we painted at
@@ -358,27 +360,33 @@ public class WikiPaper extends WallpaperService {
             mPrefs.registerOnSharedPreferenceChangeListener(this);
             onSharedPreferenceChanged(mPrefs, null);
 		}
-		
-		public void onSharedPreferenceChanged(SharedPreferences prefs, String key) {
-            mWifiOnly= prefs.getBoolean("wp_wifi_dl_only", true);
-			mFrameRate = Integer.parseInt(prefs
-					.getString("wp_frame_rate", "25"));
-			mDataManager.mLowRowsThreshold = Integer.parseInt(prefs.getString(
-					"wp_fresh_articles", "20"));
-			int newSwapDelay = Integer.parseInt(prefs.getString("wp_article_refresh_rate", "60")) * 1000;
-			if (newSwapDelay != mSwapDisplayedArticleDelay_ms ) {
-				mSwapDisplayedArticleDelay_ms = newSwapDelay;
-				
-				mCurrentlyRunningSwapper.keepGoing = false;
-				mCurrentlyRunningSwapper = new ArticleSwapper(); // do I get a new reference and the old one still dies off?
-				mExecutorService.schedule(mCurrentlyRunningSwapper,
-						mSwapDisplayedArticleDelay_ms, TimeUnit.MILLISECONDS);
 
-				mArticleScrollPeriod_ms = Math.min(
-						mSwapDisplayedArticleDelay_ms, mArticleScrollPeriod_ms);
+		public void onSharedPreferenceChanged(SharedPreferences prefs,
+				String key) {
+			synchronized (preferencesLock ) {
+				mWifiOnly = prefs.getBoolean("wp_wifi_dl_only", true);
+				mFrameRate = Integer.parseInt(prefs.getString("wp_frame_rate",
+						"25"));
+				mDataManager.mLowRowsThreshold = Integer.parseInt(prefs
+						.getString("wp_fresh_articles", "20"));
+				int newSwapDelay = Integer.parseInt(prefs.getString(
+						"wp_article_refresh_rate", "60")) * 1000;
+				if (newSwapDelay != mSwapDisplayedArticleDelay_ms) {
+					mSwapDisplayedArticleDelay_ms = newSwapDelay;
+
+					mCurrentlyRunningSwapper.keepGoing = false;
+					// does the old reference die off if I just replace it like so:
+					mCurrentlyRunningSwapper = new ArticleSwapper();
+					mExecutorService.schedule(mCurrentlyRunningSwapper,
+							mSwapDisplayedArticleDelay_ms,
+							TimeUnit.MILLISECONDS);
+
+					mArticleScrollPeriod_ms = Math.min(
+							mSwapDisplayedArticleDelay_ms,
+							mArticleScrollPeriod_ms);
+				}
 			}
-			
-        }
+		}
 
 
 		@Override
@@ -493,28 +501,33 @@ public class WikiPaper extends WallpaperService {
         void drawPaper(Canvas c) {
             c.drawColor(0xff000000);
             
-            try {
-				mArticleAndUpdateTimeMutex.acquire();
-			} catch (Exception e) {
-				Log.e(WP_LOGTAG, "Interrupted exception?? Wow!!!");
-				e.printStackTrace();
-				return;
-			}
+//            try {
+//				mArticleAndUpdateTimeMutex.acquire();
+//			} catch (Exception e) {
+//				Log.e(WP_LOGTAG, "Interrupted exception?? Wow!!!");
+//				e.printStackTrace();
+//				return;
+//			}
 
             // danger! For some reason taking out this mutex and just using
             // these member variables directly makes things go crazy...
-            int titleHeight = mTitleHeight;
-            int articleHeight = mArticleHeight;
+            int titleHeight, summaryHeight;
+            synchronized (mTitlePicture) {
+            	titleHeight = mTitleHeight;
+			}
+            synchronized (mSummaryPicture) {
+            	summaryHeight = mSummaryHeight;
+            }
             int statsHeight = mStatsHeight;
-            mArticleAndUpdateTimeMutex.release();
+//            mArticleAndUpdateTimeMutex.release();
 
-            int stats_y = mHeight - statsHeight - mStatsBottomOffset ;
+            int stats_y = mHeight - statsHeight - mStatsBottomOffset;
 
             long ms_since_refresh = SystemClock.elapsedRealtime() - mLastArticleSwap; 
 
             int y = (int)lerp((float)ms_since_refresh % mArticleScrollPeriod_ms,
             				0F, (float)mArticleScrollPeriod_ms ,
-            				(float)stats_y, (float)(titleHeight - articleHeight));
+            				(float)stats_y, (float)(titleHeight - summaryHeight));
             
             // In order to have the summary text scroll up "underneath"
             // the title text, we have to lay down a black rectangle and
@@ -527,7 +540,9 @@ public class WikiPaper extends WallpaperService {
             // draw the summary (translated down)
             c.save();
             c.translate(0, y);
-            c.drawPicture(mSummaryPicture);
+            synchronized(mSummaryPicture) {
+            	c.drawPicture(mSummaryPicture);
+            }
             c.restore();
             
             // draw a rectangle for the title background:
@@ -535,42 +550,52 @@ public class WikiPaper extends WallpaperService {
 					+ mTextPadding_topbottom, mBackgroundPaint);
 
             // draw the title
-            c.drawPicture(mTitlePicture);
+			synchronized(mTitlePicture) {
+				c.drawPicture(mTitlePicture);
+			}
             
             // draw the stats
             c.drawRect(0, stats_y, mWidth, mHeight, mBackgroundPaint);
             
-			if (showStats && articleHeight != -1) {
+			if (showStats && summaryHeight != -1) {
 				String txt;
-				if (mDbStats != null) {
-					txt = String.format("Cache stats:\n"
-							+ "   %d unused article%s, %d total article%s\n"
-							+ "   Most used article: %s (used %d time%s)",
-							mDbStats.numUnusedArticles,
-							mDbStats.numUnusedArticles == 1 ? "" : "s",
-							mDbStats.numArticles,
-							mDbStats.numArticles == 1 ? "" : "s",
-							mDbStats.maxUsedArticle,
-							mDbStats.maxUsedArticleUses,
-							mDbStats.maxUsedArticleUses == 1 ? "" : "s");
-					stats_y += drawSomeText(txt, c, mStatsTextPaint, mWidth,
-							mHeight, mTextPadding_topbottom / 2, stats_y
-									+ (mTextPadding_topbottom / 2));
-				}
-				if (mLastArticleSwap != -1) {
-					long ms_til_refresh = mSwapDisplayedArticleDelay_ms
-							- ms_since_refresh;
-					int s_til_refresh = (int) ms_til_refresh / 1000;
-					if (s_til_refresh < 0) {
-						txt = "Refreshing...";
-					} else {
-						txt = String.format("%d second%s until next refresh",
-								s_til_refresh, s_til_refresh == 1 ? "" : "s");
+				synchronized(mDbStatsLock) {
+					if (mDbStats != null) {
+						txt = String
+								.format("Cache stats:\n"
+										+ "   %d unused article%s, %d total article%s\n"
+										+ "   Most used article: %s (used %d time%s)",
+										mDbStats.numUnusedArticles,
+										mDbStats.numUnusedArticles == 1 ? ""
+												: "s", mDbStats.numArticles,
+										mDbStats.numArticles == 1 ? "" : "s",
+										mDbStats.maxUsedArticle,
+										mDbStats.maxUsedArticleUses,
+										mDbStats.maxUsedArticleUses == 1 ? ""
+												: "s");
+						stats_y += drawSomeText(txt, c, mStatsTextPaint,
+								mWidth, mHeight, mTextPadding_topbottom / 2,
+								stats_y + (mTextPadding_topbottom / 2));
 					}
-					stats_y += mHeightOfAnM_Stats; // "carriage return"
-					stats_y += drawSomeText(txt, c, mStatsTextPaint, mWidth,
-							mHeight, mTextPadding_topbottom / 2, stats_y
-									+ (mTextPadding_topbottom / 2));
+				}
+				synchronized (mArticle) {
+					if (mLastArticleSwap != -1) {
+						long ms_til_refresh = mSwapDisplayedArticleDelay_ms
+								- ms_since_refresh;
+						int s_til_refresh = (int) ms_til_refresh / 1000;
+						if (s_til_refresh < 0) {
+							txt = "Refreshing...";
+						} else {
+							txt = String.format(
+									"%d second%s until next refresh",
+									s_til_refresh, s_til_refresh == 1 ? ""
+											: "s");
+						}
+						stats_y += mHeightOfAnM_Stats; // "carriage return"
+						stats_y += drawSomeText(txt, c, mStatsTextPaint,
+								mWidth, mHeight, mTextPadding_topbottom / 2,
+								stats_y + (mTextPadding_topbottom / 2));
+					}
 				}
 			}
         }

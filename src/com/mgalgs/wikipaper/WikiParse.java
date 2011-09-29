@@ -11,11 +11,28 @@ import org.jsoup.nodes.Document;
 import android.util.Log;
 
 public class WikiParse {
-    public static String extractArticleSummaryFromJSON(JSONObject json) {
+	
+	private final static String summarySelector = "p";
+	private final static String disambigSummarySelector = summarySelector + " + ul";
+	private final static String filterSelector = "table";
+	private final static String disambigTest = "#disambigbox";
+
+	public static String extractArticleSummaryFromJSON(JSONObject json) {
 		try {
 			String summaryhtml = json.getJSONObject("parse").getJSONObject("text").getString("*");
 			Document doc = Jsoup.parse(summaryhtml);
-			return doc.select("p").first().text();
+			// see if this is a disambiguation page:
+			if (!doc.select(disambigTest).isEmpty()) {
+				Log.d(WikiPaper.WP_LOGTAG, "This is a disambiguation page!");
+				String txt1 = doc.select(summarySelector).not(filterSelector).first().text();
+				String txt2 = doc.select(disambigSummarySelector).not(filterSelector).first().text();
+				Log.d(WikiPaper.WP_LOGTAG, "txt1 and txt2 are: " + txt1 + " :AND: " + txt2);
+				// this is a disambiguation page
+				return txt1 + txt2;
+			} else {
+				// this is a normal article
+				return doc.select(summarySelector).not(filterSelector).first().text();
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
