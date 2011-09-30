@@ -39,4 +39,22 @@
 		android:defaultValue="20"
 		/>
 
+	<ListPreference
+		android:key="wp_max_articles"
+		android:title="@string/wp_settings_max_articles"
+		android:summary="@string/wp_settings_max_articles_summary"
+		android:entries="@array/wp_settings_max_articles_choices"
+		android:entryValues="@array/wp_settings_max_articles_values"
+		android:defaultValue="500"
+		/>
+		
+	<ListPreference
+		android:key="wp_scroll_speed"
+		android:title="@string/wp_settings_scroll_speed"
+		android:summary="@string/wp_settings_scroll_speed_summary"
+		android:entries="@array/wp_settings_scroll_speed_choices"
+		android:entryValues="@array/wp_settings_scroll_speed_values"
+		android:defaultValue="3"
+		/>
+
 </PreferenceScreen>

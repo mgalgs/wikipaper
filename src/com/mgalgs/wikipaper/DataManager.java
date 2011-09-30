@@ -32,6 +32,7 @@ public final class DataManager {
 	private SQLiteDatabase mDb;
 
 	private final Context mCtx;
+	public int mMaxArticles = 200;
 
 	private static class DatabaseHelper extends SQLiteOpenHelper {
 		public DatabaseHelper(Context context) {
@@ -118,6 +119,25 @@ public final class DataManager {
 			Log.i(WikiPaper.WP_LOGTAG, "Need to replenish article supply...");
 			InsertSomeArticles(n == 0 ? 1 : replenish_rate);
 		}
+		n = getNumTotalArticles();
+		if (n > mMaxArticles) {
+			deleteSomeOldArticles(mMaxArticles - n);
+		}
+	}
+	
+	public void deleteSomeOldArticles(int n) {
+		Cursor c = mDb.query(DATABASE_TABLE, new String[] {KEY_ROW_ID}, null, null, null, null, KEY_ROW_ID + " DESC");
+		if (c == null)
+			return;
+		do {
+			try {
+				mDb.delete(DATABASE_TABLE, KEY_ROW_ID + "=?",
+						new String[] { Integer.toString(c.getInt(c
+								.getColumnIndexOrThrow(KEY_ROW_ID))) });
+			} catch (Exception e) {
+				Log.e(WikiPaper.WP_LOGTAG, "Error deleting row!");
+			}
+		} while (c.moveToNext());
 	}
 	
 	public int getNumUnusedArticles() {
@@ -130,6 +150,15 @@ public final class DataManager {
 		return res;
 	}
 
+	private int getNumTotalArticles() {
+		// max used article and number of articles
+		Cursor c = mDb
+				.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
+						null, null, null, null, null, null);
+		if (c == null)
+			return 0;
+		return c.getCount();
+	}
 
 	public DbStats getDbStats() {
 		Cursor c = null;
@@ -142,12 +171,13 @@ public final class DataManager {
 			// number of unused articles
 			nUnusedArticles = getNumUnusedArticles();
 
+			nArticles = getNumTotalArticles();
+			
 			// max used article and number of articles
 			c = mDb.query(true, DATABASE_TABLE, new String[] { KEY_USED, KEY_ARTICLE_TITLE },
 					null, null, null, null, KEY_USED + " DESC", null);
 			if (c == null)
 				return null;
-			nArticles = c.getCount();
 			c.moveToFirst();
 			maxUsedArticle = c.getString(c.getColumnIndexOrThrow(KEY_ARTICLE_TITLE));
 			maxUsedArticleUses = c.getInt(c.getColumnIndexOrThrow(KEY_USED));

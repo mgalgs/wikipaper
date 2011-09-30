@@ -78,6 +78,11 @@ public class WikiPaper extends WallpaperService {
 	private int mTitleHeight;
 	private int mStatsHeight;
 	private int mHeightOfAnM_Stats;
+	private Integer mLastYoffset = 0;
+	private int mScrollSpeed = 3;
+
+
+
 
 	private int mTextColor = 0xaaffffff;
 	private int mBackgroundColor = 0xff000000;
@@ -149,8 +154,12 @@ public class WikiPaper extends WallpaperService {
 		mFrameRate = Integer.parseInt(mPrefs.getString("wp_frame_rate", "25"));
 		mDataManager.mLowRowsThreshold = Integer.parseInt(mPrefs.getString(
 				"wp_fresh_articles", "20"));
+		mDataManager.mMaxArticles = Integer.parseInt(mPrefs.getString(
+				"wp_max_articles", "500"));
 		mArticleScrollPeriod_ms = Math.min(mSwapDisplayedArticleDelay_ms,
 				mArticleScrollPeriod_ms);
+		mScrollSpeed = Integer.parseInt(mPrefs
+				.getString("wp_scroll_speed", "3"));
 
 		scheduleCacheUpdate(100,
 				false, // one-time update
@@ -257,6 +266,10 @@ public class WikiPaper extends WallpaperService {
 
 		synchronized (mDbStatsLock) {
 			mDbStats = mDataManager.getDbStats();
+		}
+		
+		synchronized (mLastYoffset) {
+			mLastYoffset = 0;
 		}
 	}
     
@@ -369,6 +382,8 @@ public class WikiPaper extends WallpaperService {
 						"25"));
 				mDataManager.mLowRowsThreshold = Integer.parseInt(prefs
 						.getString("wp_fresh_articles", "20"));
+				mDataManager.mMaxArticles = Integer.parseInt(prefs
+						.getString("wp_max_articles", "500"));
 				int newSwapDelay = Integer.parseInt(prefs.getString(
 						"wp_article_refresh_rate", "60")) * 1000;
 				if (newSwapDelay != mSwapDisplayedArticleDelay_ms) {
@@ -385,6 +400,9 @@ public class WikiPaper extends WallpaperService {
 							mSwapDisplayedArticleDelay_ms,
 							mArticleScrollPeriod_ms);
 				}
+				mScrollSpeed  = Integer.parseInt(prefs.getString("wp_scroll_speed",
+						"3"));
+
 			}
 		}
 
@@ -500,17 +518,7 @@ public class WikiPaper extends WallpaperService {
 		
         void drawPaper(Canvas c) {
             c.drawColor(0xff000000);
-            
-//            try {
-//				mArticleAndUpdateTimeMutex.acquire();
-//			} catch (Exception e) {
-//				Log.e(WP_LOGTAG, "Interrupted exception?? Wow!!!");
-//				e.printStackTrace();
-//				return;
-//			}
 
-            // danger! For some reason taking out this mutex and just using
-            // these member variables directly makes things go crazy...
             int titleHeight, summaryHeight;
             synchronized (mTitlePicture) {
             	titleHeight = mTitleHeight;
@@ -519,15 +527,24 @@ public class WikiPaper extends WallpaperService {
             	summaryHeight = mSummaryHeight;
             }
             int statsHeight = mStatsHeight;
-//            mArticleAndUpdateTimeMutex.release();
 
             int stats_y = mHeight - statsHeight - mStatsBottomOffset;
 
             long ms_since_refresh = SystemClock.elapsedRealtime() - mLastArticleSwap; 
 
-            int y = (int)lerp((float)ms_since_refresh % mArticleScrollPeriod_ms,
-            				0F, (float)mArticleScrollPeriod_ms ,
-            				(float)stats_y, (float)(titleHeight - summaryHeight));
+//            int y = (int)lerp((float)ms_since_refresh % mArticleScrollPeriod_ms,
+//            				0F, (float)mArticleScrollPeriod_ms ,
+//            				(float)stats_y, (float)(titleHeight - summaryHeight));
+            int lastYoffset;
+            synchronized(mLastYoffset) {
+            	lastYoffset = mLastYoffset;
+            }
+            int y = stats_y - lastYoffset;
+            lastYoffset += mScrollSpeed;
+            lastYoffset %= ((stats_y - titleHeight) + summaryHeight);
+            synchronized(mLastYoffset) {
+            	mLastYoffset = lastYoffset;
+            }
             
             // In order to have the summary text scroll up "underneath"
             // the title text, we have to lay down a black rectangle and
