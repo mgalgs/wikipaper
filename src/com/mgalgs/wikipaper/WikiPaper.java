@@ -196,7 +196,7 @@ public class WikiPaper extends WallpaperService {
     	}
 
 		@Override
-		public void run() {
+		public synchronized void run() {
 			ConnectivityManager connManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
 			Boolean wifiOnly;
 			synchronized (preferencesLock) {
@@ -218,7 +218,7 @@ public class WikiPaper extends WallpaperService {
     public class ArticleSwapper implements Runnable {
     	private boolean keepGoing = true;
     	@Override
-    	public void run() {
+    	public synchronized void run() {
     		if (!keepGoing) return;
     		doArticleSwap();
     		mCurrentlyRunningSwapper = new ArticleSwapper();
@@ -249,7 +249,7 @@ public class WikiPaper extends WallpaperService {
 		synchronized (mSummaryPicture) {
 			Canvas c = mSummaryPicture.beginRecording(mWidth, mHeight);
 			String theSummary = mArticle.summary.length() > 4 ? mArticle.summary
-					: "Empty article";
+					: mArticle.title;
 			mSummaryHeight = drawSomeText(theSummary, c, mSummaryTextPaint,
 					mWidth - mTextPadding_sides, mHeight,
 					mTextPadding_topbottom / 2, mTextPadding_topbottom / 2);

@@ -70,7 +70,7 @@ public final class DataManager {
 
 	public void InsertSomeArticles(int n) {
 		List<Article> alist = WikiParse.getRandomArticles(n);
-//		Article[] alist = WikiParse.getRandomArticles(n);
+		if (alist == null) return;
 		for (Article a : alist) {
 			ContentValues cv = new ContentValues();
 			cv.put(KEY_ARTICLE_SUMMARY, a.summary);
@@ -170,6 +170,7 @@ public final class DataManager {
 			int res = c.getCount();
 			return res;
 		} catch (Exception e) {
+			Log.e(WikiPaper.WP_LOGTAG, "Error getting num unused articles");
 			return -1;
 		} finally {
 			if (c != null)
@@ -179,12 +180,20 @@ public final class DataManager {
 
 	private int getNumTotalArticles() {
 		// max used article and number of articles
-		Cursor c = mDb
-				.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
-						null, null, null, null, null, null);
-		if (c == null)
-			return 0;
-		return c.getCount();
+		Cursor c = null;
+		try {
+			c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_ROW_ID },
+					null, null, null, null, null, null);
+			if (c == null)
+				return 0;
+			return c.getCount();
+		} catch (Exception e) {
+			Log.e(WikiPaper.WP_LOGTAG, "Error getting num total articles");
+			return -1;
+		} finally {
+			if (c != null)
+				c.close();
+		}
 	}
 
 	public DbStats getDbStats() {
@@ -251,5 +260,4 @@ public final class DataManager {
 				c.close();
 		}
 	}
-
 }
