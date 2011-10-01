@@ -135,9 +135,10 @@ public class WikiPaper extends WallpaperService {
 
     @Override
     public void onCreate() {
-    	Debug.waitForDebugger();
-        Log.i(WP_LOGTAG, "onCreate'ing WikiPaper");
+//    	Log.i(WP_LOGTAG, "waiting for debugger");
+//    	Debug.waitForDebugger();
         super.onCreate();
+        Log.i(WP_LOGTAG, "onCreate'ing WikiPaper");
         
         
         // open data manager and get an article
