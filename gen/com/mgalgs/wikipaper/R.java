@@ -11,14 +11,14 @@ public final class R {
     public static final class array {
         public static final int wp_settings_article_refresh_rate_choices=0x7f060006;
         public static final int wp_settings_article_refresh_rate_values=0x7f060007;
-        public static final int wp_settings_frame_rate_choices=0x7f060000;
-        public static final int wp_settings_frame_rate_values=0x7f060001;
+        public static final int wp_settings_frame_rate_choices=0x7f060008;
+        public static final int wp_settings_frame_rate_values=0x7f060009;
         public static final int wp_settings_fresh_articles_choices=0x7f060002;
         public static final int wp_settings_fresh_articles_values=0x7f060003;
         public static final int wp_settings_max_articles_choices=0x7f060004;
         public static final int wp_settings_max_articles_values=0x7f060005;
-        public static final int wp_settings_scroll_speed_choices=0x7f060008;
-        public static final int wp_settings_scroll_speed_values=0x7f060009;
+        public static final int wp_settings_scroll_speed_choices=0x7f060000;
+        public static final int wp_settings_scroll_speed_values=0x7f060001;
     }
     public static final class attr {
     }
@@ -36,14 +36,14 @@ public final class R {
         public static final int wp_settings=0x7f050004;
         public static final int wp_settings_article_refresh_rate=0x7f05000e;
         public static final int wp_settings_article_refresh_rate_summary=0x7f05000f;
-        public static final int wp_settings_frame_rate=0x7f050008;
-        public static final int wp_settings_frame_rate_summary=0x7f050009;
+        public static final int wp_settings_frame_rate=0x7f050010;
+        public static final int wp_settings_frame_rate_summary=0x7f050011;
         public static final int wp_settings_fresh_articles=0x7f05000a;
         public static final int wp_settings_fresh_articles_summary=0x7f05000b;
         public static final int wp_settings_max_articles=0x7f05000c;
         public static final int wp_settings_max_articles_summary=0x7f05000d;
-        public static final int wp_settings_scroll_speed=0x7f050010;
-        public static final int wp_settings_scroll_speed_summary=0x7f050011;
+        public static final int wp_settings_scroll_speed=0x7f050008;
+        public static final int wp_settings_scroll_speed_summary=0x7f050009;
         public static final int wp_settings_wifi_dl_only=0x7f050005;
         public static final int wp_settings_wifi_dl_only_off=0x7f050007;
         public static final int wp_settings_wifi_dl_only_on=0x7f050006;

@@ -75,7 +75,11 @@ public final class DataManager {
 			ContentValues cv = new ContentValues();
 			cv.put(KEY_ARTICLE_SUMMARY, a.summary);
 			cv.put(KEY_ARTICLE_TITLE, a.title);
-			mDb.insert(DATABASE_TABLE, null, cv);
+			try {
+				mDb.insertOrThrow(DATABASE_TABLE, null, cv);
+			} catch (Exception e) {
+				Log.e(WikiPaper.WP_LOGTAG, "Error inserting article into database! -> " + a.title);
+			}
 		}
 	}
 
@@ -121,33 +125,56 @@ public final class DataManager {
 		}
 		n = getNumTotalArticles();
 		if (n > mMaxArticles) {
-			deleteSomeOldArticles(mMaxArticles - n);
+			deleteSomeOldArticles(n - mMaxArticles);
 		}
 	}
 	
 	public void deleteSomeOldArticles(int n) {
-		Cursor c = mDb.query(DATABASE_TABLE, new String[] {KEY_ROW_ID}, null, null, null, null, KEY_ROW_ID + " DESC");
-		if (c == null)
-			return;
-		do {
-			try {
-				mDb.delete(DATABASE_TABLE, KEY_ROW_ID + "=?",
-						new String[] { Integer.toString(c.getInt(c
-								.getColumnIndexOrThrow(KEY_ROW_ID))) });
-			} catch (Exception e) {
-				Log.e(WikiPaper.WP_LOGTAG, "Error deleting row!");
+		Cursor c = null;
+		try {
+			c = mDb.query(DATABASE_TABLE, new String[] { KEY_ROW_ID }, null,
+					null, null, null, KEY_ROW_ID + " ASC");
+			if (c == null)
+				return;
+			if (!c.moveToFirst()) {
+				Log.e(WikiPaper.WP_LOGTAG,
+						"Weird deleteSomeOldArticles error doing moveToFirst");
 			}
-		} while (c.moveToNext());
+
+			do {
+				String row_id = Integer.toString(c.getInt(c
+						.getColumnIndexOrThrow(KEY_ROW_ID)));
+				Log.d(WikiPaper.WP_LOGTAG, String.format(
+						"Trying to delete row with id %s. %d more to go.",
+						row_id, n));
+				mDb.delete(DATABASE_TABLE, KEY_ROW_ID + "=?",
+						new String[] { row_id });
+			} while (c.moveToNext() && --n > 0);
+
+		} catch (Exception e) {
+			Log.e(WikiPaper.WP_LOGTAG, "Error in deleteSomeOldArticles");
+			e.printStackTrace();
+		} finally {
+			if (c != null)
+				c.close();
+		}
 	}
 	
 	public int getNumUnusedArticles() {
-		Cursor c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED },
-				KEY_USED + " = 0", null, null, null, null, null);
-		if (c == null)
+		Cursor c = null;
+		try {
+			c = mDb.query(false, DATABASE_TABLE, new String[] { KEY_USED },
+					KEY_USED + " = 0", null, null, null, null, null);
+			if (c == null)
+				return -1;
+			int res = c.getCount();
+			return res;
+		} catch (Exception e) {
 			return -1;
-		int res = c.getCount();
-		c.close();
-		return res;
+		} finally {
+			if (c != null)
+				c.close();
+		}
 	}
 
 	private int getNumTotalArticles() {

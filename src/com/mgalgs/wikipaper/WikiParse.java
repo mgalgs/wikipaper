@@ -54,7 +54,7 @@ public class WikiParse {
 		try {
 			JSONArray jsonrandroot = getRandomArticlesJSON(nArticles)
 					.getJSONObject("query").getJSONArray("random");
-			Log.i(WikiPaper.WP_LOGTAG, String.format(
+			Log.d(WikiPaper.WP_LOGTAG, String.format(
 					"Downloaded %d article json specs", nArticles));
 			for (int i = 0; i < nArticles; i++) {
 				JSONObject j = jsonrandroot.getJSONObject(i);
@@ -63,7 +63,7 @@ public class WikiParse {
 					Log.e(WikiPaper.WP_LOGTAG, "Got null from download... :(");
 					continue;
 				}
-				Log.i(WikiPaper.WP_LOGTAG,
+				Log.d(WikiPaper.WP_LOGTAG,
 						String.format("Downloaded article %d/%d", i+1, nArticles));
 
 				Article a = new Article();

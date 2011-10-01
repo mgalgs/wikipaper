@@ -12,21 +12,26 @@
     <string name="wp_settings_wifi_dl_only_on">Only download while connected to WiFi</string>
     <string name="wp_settings_wifi_dl_only_off">Download over WiFi and mobile network</string>
 
-    <string name="wp_settings_frame_rate">Frame Rate</string>
-    <string name="wp_settings_frame_rate_summary">Faster uses more battery</string>
-    <string-array name="wp_settings_frame_rate_choices">
-    	<item>"Slow"</item>
-    	<item>"Medium"</item>
-    	<item>"Fast"</item>
-    </string-array>
-    <string-array name="wp_settings_frame_rate_values">
-    	<item>"15"</item>
-    	<item>"25"</item>
-    	<item>"40"</item>
-    </string-array>
+
+	<string name="wp_settings_scroll_speed">Scroll Speed</string>
+	<string name="wp_settings_scroll_speed_summary">How fast to scroll the article</string>
+	<string-array name="wp_settings_scroll_speed_choices">
+		<item>"Sloth"</item>
+		<item>"Slow"</item>
+		<item>"Medium"</item>
+		<item>"Fast"</item>
+		<item>"Insane"</item>
+	</string-array>
+	<string-array name="wp_settings_scroll_speed_values">
+		<item>"1"</item>
+		<item>"2"</item>
+		<item>"3"</item>
+		<item>"6"</item>
+		<item>"18"</item>
+	</string-array>
 
     <string name="wp_settings_fresh_articles">Number of Fresh Articles</string>
-    <string name="wp_settings_fresh_articles_summary">We try to keep at least this many unused articles on hand</string>
+    <string name="wp_settings_fresh_articles_summary">We try to keep at least this many unused articles on hand. Set to "None" to stop downloading articles.</string>
     <string-array name="wp_settings_fresh_articles_choices">
     	<item>"None"</item>
     	<item>"10"</item>
@@ -45,12 +50,14 @@
     <string name="wp_settings_max_articles">Maximum Articles</string>
     <string name="wp_settings_max_articles_summary">Max articles to store on device. We start deleting old articles when we hit this limit.</string>
     <string-array name="wp_settings_max_articles_choices">
+    	<item>"50"</item>
     	<item>"100"</item>
     	<item>"500"</item>
     	<item>"1000"</item>
     	<item>"10000"</item>
     </string-array>
     <string-array name="wp_settings_max_articles_values">
+    	<item>"50"</item>
     	<item>"100"</item>
     	<item>"500"</item>
     	<item>"1000"</item>
@@ -86,21 +93,17 @@
     	<item>"86400"</item>
     </string-array>
 
-	<string name="wp_settings_scroll_speed">Scroll Speed</string>
-	<string name="wp_settings_scroll_speed_summary">How fast to scroll the article</string>
-	<string-array name="wp_settings_scroll_speed_choices">
-		<item>"Sloth"</item>
-		<item>"Slow"</item>
-		<item>"Medium"</item>
-		<item>"Fast"</item>
-		<item>"Insane"</item>
-	</string-array>
-	<string-array name="wp_settings_scroll_speed_values">
-		<item>"1"</item>
-		<item>"2"</item>
-		<item>"3"</item>
-		<item>"6"</item>
-		<item>"18"</item>
-	</string-array>
+    <string name="wp_settings_frame_rate">Frame Rate</string>
+    <string name="wp_settings_frame_rate_summary">Faster uses more battery</string>
+    <string-array name="wp_settings_frame_rate_choices">
+    	<item>"Slow"</item>
+    	<item>"Medium"</item>
+    	<item>"Fast"</item>
+    </string-array>
+    <string-array name="wp_settings_frame_rate_values">
+    	<item>"15"</item>
+    	<item>"25"</item>
+    	<item>"40"</item>
+    </string-array>
 
 </resources>

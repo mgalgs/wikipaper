@@ -20,14 +20,13 @@
 		android:defaultValue="60"
 		/>
 
-
 	<ListPreference
-		android:key="wp_frame_rate"
-		android:title="@string/wp_settings_frame_rate"
-		android:summary="@string/wp_settings_frame_rate_summary"
-		android:entries="@array/wp_settings_frame_rate_choices"
-		android:entryValues="@array/wp_settings_frame_rate_values"
-		android:defaultValue="25"
+		android:key="wp_scroll_speed"
+		android:title="@string/wp_settings_scroll_speed"
+		android:summary="@string/wp_settings_scroll_speed_summary"
+		android:entries="@array/wp_settings_scroll_speed_choices"
+		android:entryValues="@array/wp_settings_scroll_speed_values"
+		android:defaultValue="3"
 		/>
 
 	<ListPreference
@@ -49,12 +48,13 @@
 		/>
 		
 	<ListPreference
-		android:key="wp_scroll_speed"
-		android:title="@string/wp_settings_scroll_speed"
-		android:summary="@string/wp_settings_scroll_speed_summary"
-		android:entries="@array/wp_settings_scroll_speed_choices"
-		android:entryValues="@array/wp_settings_scroll_speed_values"
-		android:defaultValue="3"
+		android:key="wp_frame_rate"
+		android:title="@string/wp_settings_frame_rate"
+		android:summary="@string/wp_settings_frame_rate_summary"
+		android:entries="@array/wp_settings_frame_rate_choices"
+		android:entryValues="@array/wp_settings_frame_rate_values"
+		android:defaultValue="25"
 		/>
+
 
 </PreferenceScreen>
