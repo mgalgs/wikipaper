@@ -82,9 +82,6 @@ public class WikiPaper extends WallpaperService {
 	private Integer mLastYoffset = 0;
 	private int mScrollSpeed = 3;
 
-
-
-
 	private int mTextColor = 0xaaffffff;
 	private int mBackgroundColor = 0xff000000;
 	
@@ -140,7 +137,6 @@ public class WikiPaper extends WallpaperService {
 //    	Debug.waitForDebugger();
         super.onCreate();
         Log.i(WP_LOGTAG, "onCreate'ing WikiPaper");
-        
         
         // open data manager and get an article
         mDataManager = new DataManager(this);

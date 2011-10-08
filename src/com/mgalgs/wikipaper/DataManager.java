@@ -30,7 +30,9 @@ public final class DataManager {
 
 	private DatabaseHelper mDbHelper;
 	private SQLiteDatabase mDb;
-
+	
+	private BadWords mBadWords;
+	
 	private final Context mCtx;
 	public int mMaxArticles = 200;
 
@@ -54,6 +56,7 @@ public final class DataManager {
 
 	public DataManager(Context ctx) {
 		mCtx = ctx;
+		mBadWords = new BadWords(ctx);
 	}
 
 	public DataManager open() throws SQLException {
@@ -72,6 +75,11 @@ public final class DataManager {
 		List<Article> alist = WikiParse.getRandomArticles(n);
 		if (alist == null) return;
 		for (Article a : alist) {
+			boolean isNSFW = mBadWords.hasBadWord(a.title + " " + a.summary);
+			if (isNSFW) {
+				Log.i(WikiPaper.WP_LOGTAG, "Found a bad word... Skipping this article");
+				continue;
+			}
 			ContentValues cv = new ContentValues();
 			cv.put(KEY_ARTICLE_SUMMARY, a.summary);
 			cv.put(KEY_ARTICLE_TITLE, a.title);
