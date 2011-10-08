@@ -14,7 +14,6 @@ import android.graphics.Picture;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.net.ConnectivityManager;
-import android.os.Debug;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.service.wallpaper.WallpaperService;
@@ -36,6 +35,8 @@ public class WikiPaper extends WallpaperService {
 	private static final int DEFAULT_FRAME_RATE = 20; // fps
 
 	public static final String SHARED_PREFS_NAME = "WikiPaperSettings";
+
+	public static final int MAX_TOUCH_DY = 50;
 	
 	private Article mArticle = new Article();
     private long mLastArticleSwap = -1;
@@ -119,7 +120,7 @@ public class WikiPaper extends WallpaperService {
 		Rect b = new Rect();
 		mStatsTextPaint.getTextBounds("M", 0, 1, b);
 		mHeightOfAnM_Stats = b.height();
-		mStatsHeight = (int) ((mHeightOfAnM_Stats * 1.5)) * 7; // 7 lines in stats
+		mStatsHeight = (int) ((mHeightOfAnM_Stats * 1.5)) * 4; // 4 lines in stats
 
 		mTitleTextPaint.setColor(mTextColor);
 		mTitleTextPaint.setAntiAlias(true);
@@ -360,6 +361,8 @@ public class WikiPaper extends WallpaperService {
 
 		private boolean firstDraw = true;
 
+		private Integer mForcedDY = -1;
+
 		public WikiPaperEngine() {
 			// Create a Paint to draw the text
 			final Paint tpaint = mTouchPaint;
@@ -468,6 +471,7 @@ public class WikiPaper extends WallpaperService {
 			drawFrame();
 		}
 
+		private float mLastTouchY = -1;
 		/*
 		 * Store the position of the touch event so we can use it for drawing
 		 * later
@@ -477,9 +481,26 @@ public class WikiPaper extends WallpaperService {
 			if (event.getAction() == MotionEvent.ACTION_MOVE) {
 				mTouchX = event.getX();
 				mTouchY = event.getY();
+				synchronized(mForcedDY) {
+					if (mForcedDY == -1) {
+						mLastTouchY = mTouchY;
+					}
+					int dy = (int) (mLastTouchY - mTouchY);
+					dy *= 2; // speed things up a bit
+					if (dy > 0) {
+						mForcedDY = Math.min(dy, MAX_TOUCH_DY);
+					} else {
+						mForcedDY = Math.max(dy, -MAX_TOUCH_DY);
+					}
+					
+				}
+				mLastTouchY = mTouchY;
 			} else {
 				mTouchX = -1;
 				mTouchY = -1;
+				synchronized(mForcedDY) {
+					mForcedDY = -1;
+				}
 			}
 			super.onTouchEvent(event);
 		}
@@ -539,10 +560,19 @@ public class WikiPaper extends WallpaperService {
             int lastYoffset;
             synchronized(mLastYoffset) {
             	lastYoffset = mLastYoffset;
+            	lastYoffset %= ((stats_y - titleHeight) + summaryHeight);
             }
             int y = stats_y - lastYoffset;
-            lastYoffset += mScrollSpeed;
-            lastYoffset %= ((stats_y - titleHeight) + summaryHeight);
+            int dy;
+            synchronized(mForcedDY ) {
+            	if (mForcedDY != -1) {
+            		dy = mForcedDY;
+            		mForcedDY = -1;
+            	} else {
+            		dy = mScrollSpeed;
+            	}
+            }
+            lastYoffset += dy;
             synchronized(mLastYoffset) {
             	mLastYoffset = lastYoffset;
             }
@@ -579,18 +609,12 @@ public class WikiPaper extends WallpaperService {
 				String txt;
 				synchronized(mDbStatsLock) {
 					if (mDbStats != null) {
-						txt = String
-								.format("Cache stats:\n"
-										+ "   %d unused article%s, %d total article%s\n"
-										+ "   Most used article: %s (used %d time%s)",
-										mDbStats.numUnusedArticles,
-										mDbStats.numUnusedArticles == 1 ? ""
-												: "s", mDbStats.numArticles,
-										mDbStats.numArticles == 1 ? "" : "s",
-										mDbStats.maxUsedArticle,
-										mDbStats.maxUsedArticleUses,
-										mDbStats.maxUsedArticleUses == 1 ? ""
-												: "s");
+						txt = String.format("Cache stats:\n"
+								+ "   %d unused article%s, %d total article%s",
+								mDbStats.numUnusedArticles,
+								mDbStats.numUnusedArticles == 1 ? "" : "s",
+								mDbStats.numArticles,
+								mDbStats.numArticles == 1 ? "" : "s");
 						stats_y += drawSomeText(txt, c, mStatsTextPaint,
 								mWidth, mHeight, mTextPadding_topbottom / 2,
 								stats_y + (mTextPadding_topbottom / 2));
